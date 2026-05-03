@@ -651,7 +651,7 @@ class LibretroActivity : ComponentActivity() {
                                 showOsd(getString(R.string.ra_login_failed), OsdPosition.TopCenter)
                             }
                         },
-                        onSyncStatus = { msg -> showOsd(msg, OsdPosition.TopEnd) },
+                        onSyncStatus = { msg -> showOsd(msg, OsdPosition.TopStart) },
                         onDetectionReady = { onRaDetectionReady() },
                         logger = { msg -> sessionLog.log(msg) }
                     )
@@ -2294,7 +2294,7 @@ class LibretroActivity : ComponentActivity() {
             showOsd(getString(R.string.ra_init_failed), OsdPosition.TopCenter)
             return
         }
-        showOsd(getString(R.string.ra_login_success, name, ra.getStatus()), OsdPosition.TopEnd)
+        showOsd(getString(R.string.ra_login_success, name, ra.getStatus()), OsdPosition.TopStart)
     }
 
     private fun startUndoTimer(durationMs: Long = 60_000) {
