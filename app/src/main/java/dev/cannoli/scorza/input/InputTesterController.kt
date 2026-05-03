@@ -14,7 +14,6 @@ import dev.cannoli.scorza.ui.viewmodel.InputTesterViewModel
 
 class InputTesterController(
     private val viewModel: InputTesterViewModel,
-    private val controllerManager: ControllerManager,
     private val portRouter: PortRouter,
     private val unknownDeviceName: String,
     private val keyboardDeviceName: String,

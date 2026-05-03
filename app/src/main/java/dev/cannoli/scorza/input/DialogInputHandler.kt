@@ -68,7 +68,6 @@ class DialogInputHandler @Inject constructor(
     private val settingsViewModel: SettingsViewModel,
     private val gameListViewModel: GameListViewModel,
     private val systemListViewModel: SystemListViewModel,
-    private val controllerManager: ControllerManager,
     private val romsRepository: RomsRepository,
     private val appsRepository: AppsRepository,
     private val launcherActions: LauncherActions,

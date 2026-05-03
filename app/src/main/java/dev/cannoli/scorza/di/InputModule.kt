@@ -29,11 +29,9 @@ object InputModule {
     fun provideInputTesterController(
         activity: Activity,
         viewModel: InputTesterViewModel,
-        controllerManager: ControllerManager,
         portRouter: dev.cannoli.scorza.input.v2.runtime.PortRouter,
     ): InputTesterController = InputTesterController(
         viewModel = viewModel,
-        controllerManager = controllerManager,
         portRouter = portRouter,
         unknownDeviceName = activity.getString(R.string.input_tester_device_unknown),
         keyboardDeviceName = activity.getString(R.string.input_tester_device_keyboard),
