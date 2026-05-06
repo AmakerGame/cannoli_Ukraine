@@ -1,6 +1,7 @@
 package dev.cannoli.scorza.db
 
 import dev.cannoli.scorza.util.ArtworkLookup
+import dev.cannoli.scorza.util.NaturalSort
 import dev.cannoli.scorza.util.RomDirectoryWalker
 import dev.cannoli.scorza.util.ScanLog
 import org.json.JSONArray
@@ -68,8 +69,8 @@ class RomScanner(
         var removed = 0
 
         db.transaction { conn ->
-            conn.prepare("INSERT INTO roms (path, platform_tag, display_name, tags, disc_paths) VALUES (?, ?, ?, ?, ?)").use { insertStmt ->
-                conn.prepare("UPDATE roms SET display_name = ?, tags = ?, disc_paths = ? WHERE id = ?").use { updateStmt ->
+            conn.prepare("INSERT INTO roms (path, platform_tag, display_name, sort_key, tags, disc_paths) VALUES (?, ?, ?, ?, ?, ?)").use { insertStmt ->
+                conn.prepare("UPDATE roms SET display_name = ?, sort_key = ?, tags = ?, disc_paths = ? WHERE id = ?").use { updateStmt ->
                     conn.prepare("DELETE FROM roms WHERE id = ?").use { deleteStmt ->
                         for (rom in scanned) {
                             val current = existing[rom.relativePath]
@@ -79,16 +80,18 @@ class RomScanner(
                                 insertStmt.bindText(1, rom.relativePath)
                                 insertStmt.bindText(2, tag)
                                 insertStmt.bindText(3, rom.displayName)
-                                if (rom.tags != null) insertStmt.bindText(4, rom.tags) else insertStmt.bindNull(4)
-                                if (discJson != null) insertStmt.bindText(5, discJson) else insertStmt.bindNull(5)
+                                insertStmt.bindText(4, NaturalSort.toSortKey(rom.displayName))
+                                if (rom.tags != null) insertStmt.bindText(5, rom.tags) else insertStmt.bindNull(5)
+                                if (discJson != null) insertStmt.bindText(6, discJson) else insertStmt.bindNull(6)
                                 insertStmt.step()
                                 inserted++
                             } else if (current.displayName != rom.displayName || current.tags != rom.tags || current.discPaths != discJson) {
                                 updateStmt.reset()
                                 updateStmt.bindText(1, rom.displayName)
-                                if (rom.tags != null) updateStmt.bindText(2, rom.tags) else updateStmt.bindNull(2)
-                                if (discJson != null) updateStmt.bindText(3, discJson) else updateStmt.bindNull(3)
-                                updateStmt.bindLong(4, current.id)
+                                updateStmt.bindText(2, NaturalSort.toSortKey(rom.displayName))
+                                if (rom.tags != null) updateStmt.bindText(3, rom.tags) else updateStmt.bindNull(3)
+                                if (discJson != null) updateStmt.bindText(4, discJson) else updateStmt.bindNull(4)
+                                updateStmt.bindLong(5, current.id)
                                 updateStmt.step()
                                 updated++
                             }

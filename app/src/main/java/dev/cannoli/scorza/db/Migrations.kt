@@ -23,6 +23,7 @@ internal object Migrations {
                     path TEXT NOT NULL,
                     platform_tag TEXT NOT NULL REFERENCES platforms(tag) ON DELETE RESTRICT,
                     display_name TEXT NOT NULL,
+                    sort_key TEXT NOT NULL DEFAULT '',
                     tags TEXT,
                     disc_paths TEXT,
                     ra_game_id INTEGER,
@@ -30,7 +31,7 @@ internal object Migrations {
                     UNIQUE(platform_tag, path)
                 )
             """.trimIndent())
-            db.execSQL("CREATE INDEX roms_by_platform ON roms(platform_tag)")
+            db.execSQL("CREATE INDEX roms_by_platform_sort ON roms(platform_tag, sort_key)")
             db.execSQL("CREATE INDEX roms_by_last_played ON roms(last_played_at) WHERE last_played_at IS NOT NULL")
 
             db.execSQL("""

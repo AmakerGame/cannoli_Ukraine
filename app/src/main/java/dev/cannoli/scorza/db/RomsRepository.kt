@@ -68,7 +68,7 @@ class RomsRepository(
     }
 
     private fun romsForPlatform(platformTag: String): List<Rom> = db.queryAll(
-        "$BASE_SELECT WHERE platform_tag = ? ORDER BY display_name COLLATE NOCASE",
+        "$BASE_SELECT WHERE platform_tag = ? ORDER BY sort_key",
         platformTag, mapper = ::rowToRom,
     )
 
