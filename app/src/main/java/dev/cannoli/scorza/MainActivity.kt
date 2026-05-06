@@ -22,7 +22,6 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -52,7 +51,6 @@ import dev.cannoli.scorza.launcher.LaunchManager
 import dev.cannoli.scorza.libretro.LibretroActivity
 import dev.cannoli.scorza.libretro.RetroAchievementsManager
 import dev.cannoli.scorza.navigation.AppNavGraph
-import dev.cannoli.scorza.navigation.BrowsePurpose
 import dev.cannoli.scorza.navigation.LauncherScreen
 import dev.cannoli.scorza.navigation.NavigationController
 import dev.cannoli.scorza.settings.ContentMode
@@ -80,6 +78,7 @@ class MainActivity : ComponentActivity(), ActivityActions {
     @Inject lateinit var platformConfig: PlatformConfig
     @Inject lateinit var nav: NavigationController
     @Inject lateinit var router: InputRouter
+    @Inject lateinit var setupHandler: dev.cannoli.scorza.input.screen.SetupInputHandler
     @Inject lateinit var inputDispatcher: InputDispatcher
     @Inject lateinit var controllerV2Bridge: ControllerV2Bridge
     @Inject lateinit var portRouter: dev.cannoli.scorza.input.v2.runtime.PortRouter
@@ -107,8 +106,6 @@ class MainActivity : ComponentActivity(), ActivityActions {
     @Inject @IoScope lateinit var ioScope: CoroutineScope
 
     private val isTv: Boolean by lazy { packageManager.hasSystemFeature(PackageManager.FEATURE_LEANBACK) }
-
-    private val preInitScreenStack = mutableStateListOf<LauncherScreen>(LauncherScreen.SystemList)
 
     private var coreQueryReceiver: android.content.BroadcastReceiver? = null
     private var loginManager: RetroAchievementsManager? = null
@@ -207,7 +204,10 @@ class MainActivity : ComponentActivity(), ActivityActions {
         editButtonsController.cancelListening()
         loadLoggingPrefs()
 
-        setupWireInput()
+        setupHandler.onStartInstalling = { targetPath -> startInstalling(targetPath) }
+        setupHandler.onInstallFinished = { initializeApp() }
+        router.unregisterCoreQueryReceiver = { unregisterCoreQueryReceiver() }
+        router.wire(inputDispatcher)
 
         onBackPressedDispatcher.addCallback(this, object : androidx.activity.OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {}
@@ -304,42 +304,8 @@ class MainActivity : ComponentActivity(), ActivityActions {
                 initializeApp()
             } else {
                 val volumes = setupCoordinator.detectStorageVolumes() + ("Custom" to "")
-                val stack = preInitScreenStack
-                stack.clear()
-                stack.add(LauncherScreen.Setup(volumes = volumes))
-            }
-        }
-    }
-
-    private fun pushDirectoryBrowser(purpose: BrowsePurpose, startPath: String) {
-        val entries = setupCoordinator.listDirectories(startPath)
-        preInitScreenStack.add(LauncherScreen.DirectoryBrowser(
-            purpose = purpose,
-            currentPath = startPath,
-            entries = entries
-        ))
-    }
-
-    private fun onDirectoryBrowserResult(purpose: BrowsePurpose, path: String) {
-        val resolved = if (setupCoordinator.isVolumeRoot(path)) path + "Cannoli/" else path
-        when (purpose) {
-            BrowsePurpose.SD_ROOT -> {
-                settings.sdCardRoot = resolved
-                nav.dialogState.value = DialogState.RestartRequired
-            }
-            BrowsePurpose.ROM_DIRECTORY -> {
-                settings.romDirectory = resolved
-                launcherActions.invalidateAllLibraryCaches()
-                nav.dialogState.value = DialogState.RestartRequired
-            }
-            BrowsePurpose.SETUP -> {
-                val stack = preInitScreenStack
-                val idx = stack.indexOfLast { it is LauncherScreen.Setup }
-                if (idx >= 0) {
-                    val setup = stack[idx] as LauncherScreen.Setup
-                    val resolvedPath = if (resolved.endsWith("/")) resolved else "$resolved/"
-                    stack[idx] = setup.copy(customPath = resolvedPath)
-                }
+                nav.screenStack.clear()
+                nav.screenStack.add(LauncherScreen.Setup(volumes = volumes))
             }
         }
     }
@@ -348,18 +314,16 @@ class MainActivity : ComponentActivity(), ActivityActions {
         setupCoordinator.startInstalling(
             targetPath = targetPath,
             onProgress = { progress, label ->
-                val stack = preInitScreenStack
-                val screen = stack.lastOrNull() as? LauncherScreen.Installing ?: return@startInstalling
-                stack[stack.lastIndex] = screen.copy(progress = progress, statusLabel = label)
+                val screen = nav.currentScreen as? LauncherScreen.Installing ?: return@startInstalling
+                nav.replaceTop(screen.copy(progress = progress, statusLabel = label))
             },
             onFinished = { _ ->
-                val stack = preInitScreenStack
-                val screen = stack.lastOrNull() as? LauncherScreen.Installing ?: return@startInstalling
-                stack[stack.lastIndex] = screen.copy(
+                val screen = nav.currentScreen as? LauncherScreen.Installing ?: return@startInstalling
+                nav.replaceTop(screen.copy(
                     progress = 1f,
                     statusLabel = "Cannoli is now ready to be garnished!",
                     finished = true
-                )
+                ))
             },
         )
     }
@@ -646,17 +610,16 @@ class MainActivity : ComponentActivity(), ActivityActions {
             romScanner = romScanner,
             onProgress = dev.cannoli.scorza.db.importer.ImportProgress { progress, label ->
                 runOnUiThread {
-                    val stack = preInitScreenStack
-                    val top = stack.lastOrNull()
+                    val top = nav.currentScreen
                     if (top is LauncherScreen.Housekeeping &&
                         top.kind == dev.cannoli.scorza.ui.screens.HousekeepingKind.DATABASE_MIGRATION) {
-                        stack[stack.lastIndex] = top.copy(progress = progress, statusLabel = label)
+                        nav.replaceTop(top.copy(progress = progress, statusLabel = label))
                     }
                 }
             },
         )
 
-        preInitScreenStack.add(
+        nav.screenStack.add(
             LauncherScreen.Housekeeping(
                 kind = dev.cannoli.scorza.ui.screens.HousekeepingKind.DATABASE_MIGRATION,
                 progress = 0f,
@@ -667,9 +630,8 @@ class MainActivity : ComponentActivity(), ActivityActions {
         ioScope.launch {
             val result = importer.run()
             withContext(Dispatchers.Main) {
-                val stack = preInitScreenStack
-                val top = stack.lastOrNull()
-                if (top is LauncherScreen.Housekeeping) stack.removeAt(stack.lastIndex)
+                val top = nav.currentScreen
+                if (top is LauncherScreen.Housekeeping) nav.pop()
                 if (result is dev.cannoli.scorza.db.importer.ImportResult.Failure) {
                     dev.cannoli.scorza.util.ScanLog.write("ERROR import returned Failure: ${result.cause.message}")
                 }
@@ -679,11 +641,6 @@ class MainActivity : ComponentActivity(), ActivityActions {
     }
 
     private fun finishInitializeApp() {
-        if (preInitScreenStack.firstOrNull() !is LauncherScreen.SystemList) {
-            preInitScreenStack.clear()
-            preInitScreenStack.add(LauncherScreen.SystemList)
-        }
-
         val root = File(settings.sdCardRoot)
 
         ioScope.launch {
@@ -703,9 +660,6 @@ class MainActivity : ComponentActivity(), ActivityActions {
                 settingsViewModel.updateInfo = info
             }
         }
-
-        router.unregisterCoreQueryReceiver = { unregisterCoreQueryReceiver() }
-        router.wire(inputDispatcher)
 
         bindingController.onProgress = { keys, elapsedMs ->
             val cs = nav.currentScreen
@@ -763,9 +717,6 @@ class MainActivity : ComponentActivity(), ActivityActions {
         launcherActions.rescanSystemList()
     }
 
-    private fun wrapIndex(current: Int, delta: Int, size: Int): Int =
-        if (size == 0) 0 else (current + delta).mod(size)
-
     private fun hasStoragePermission(): Boolean {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             Environment.isExternalStorageManager()
@@ -804,119 +755,6 @@ class MainActivity : ComponentActivity(), ActivityActions {
         coreQueryReceiver?.let {
             try { unregisterReceiver(it) } catch (_: IllegalArgumentException) {}
             coreQueryReceiver = null
-        }
-    }
-
-    private fun setupWireInput() {
-        inputDispatcher.onUp = {
-            when (val screen = preInitScreenStack.lastOrNull()) {
-                is LauncherScreen.Setup -> preInitScreenStack[preInitScreenStack.lastIndex] = screen.copy(selectedIndex = (screen.selectedIndex - 1).coerceAtLeast(0))
-                is LauncherScreen.DirectoryBrowser -> {
-                    val hasSelect = screen.currentPath != "/storage/"
-                    val count = screen.entries.size + if (hasSelect) 1 else 0
-                    if (count > 0) preInitScreenStack[preInitScreenStack.lastIndex] = screen.copy(selectedIndex = wrapIndex(screen.selectedIndex, -1, count))
-                }
-                else -> {}
-            }
-        }
-        inputDispatcher.onDown = {
-            when (val screen = preInitScreenStack.lastOrNull()) {
-                is LauncherScreen.Setup -> {
-                    val maxIndex = if (screen.volumes.getOrNull(screen.volumeIndex)?.first == "Custom") 1 else 0
-                    preInitScreenStack[preInitScreenStack.lastIndex] = screen.copy(selectedIndex = (screen.selectedIndex + 1).coerceAtMost(maxIndex))
-                }
-                is LauncherScreen.DirectoryBrowser -> {
-                    val hasSelect = screen.currentPath != "/storage/"
-                    val count = screen.entries.size + if (hasSelect) 1 else 0
-                    if (count > 0) preInitScreenStack[preInitScreenStack.lastIndex] = screen.copy(selectedIndex = wrapIndex(screen.selectedIndex, 1, count))
-                }
-                else -> {}
-            }
-        }
-        inputDispatcher.onLeft = {
-            (preInitScreenStack.lastOrNull() as? LauncherScreen.Setup)?.let { screen ->
-                if (screen.selectedIndex == 0 && screen.volumes.size > 1) {
-                    preInitScreenStack[preInitScreenStack.lastIndex] = screen.copy(
-                        volumeIndex = (screen.volumeIndex - 1 + screen.volumes.size) % screen.volumes.size,
-                        customPath = null
-                    )
-                }
-            }
-        }
-        inputDispatcher.onRight = {
-            (preInitScreenStack.lastOrNull() as? LauncherScreen.Setup)?.let { screen ->
-                if (screen.selectedIndex == 0 && screen.volumes.size > 1) {
-                    preInitScreenStack[preInitScreenStack.lastIndex] = screen.copy(
-                        volumeIndex = (screen.volumeIndex + 1) % screen.volumes.size,
-                        customPath = null
-                    )
-                }
-            }
-        }
-        inputDispatcher.onConfirm = {
-            when (val screen = preInitScreenStack.lastOrNull()) {
-                is LauncherScreen.Setup -> {
-                    val isCustom = screen.volumes.getOrNull(screen.volumeIndex)?.first == "Custom"
-                    val folderIndex = if (isCustom) 1 else -1
-                    if (screen.selectedIndex == folderIndex) {
-                        pushDirectoryBrowser(BrowsePurpose.SETUP, "/storage/")
-                    }
-                }
-                is LauncherScreen.Installing -> {
-                    if (screen.finished) {
-                        settings.sdCardRoot = screen.targetPath
-                        settings.setupCompleted = true
-                        initializeApp()
-                    }
-                }
-                is LauncherScreen.DirectoryBrowser -> {
-                    val hasSelect = screen.currentPath != "/storage/"
-                    val selectIndex = if (hasSelect) 0 else -1
-                    if (screen.selectedIndex == selectIndex) {
-                        onDirectoryBrowserResult(screen.purpose, screen.currentPath)
-                        preInitScreenStack.removeAt(preInitScreenStack.lastIndex)
-                    } else {
-                        val entryIdx = screen.selectedIndex - if (hasSelect) 1 else 0
-                        val folderName = screen.entries[entryIdx]
-                        val newPath = setupCoordinator.resolveDirectoryEntry(screen.currentPath, folderName)
-                        val newEntries = setupCoordinator.listDirectories(newPath)
-                        preInitScreenStack[preInitScreenStack.lastIndex] = LauncherScreen.DirectoryBrowser(
-                            purpose = screen.purpose,
-                            currentPath = newPath,
-                            entries = newEntries
-                        )
-                    }
-                }
-                else -> {}
-            }
-        }
-        inputDispatcher.onBack = {
-            when (val screen = preInitScreenStack.lastOrNull()) {
-                is LauncherScreen.DirectoryBrowser -> {
-                    val parent = setupCoordinator.parentDirectory(screen.currentPath)
-                    if (parent != null) {
-                        val newEntries = setupCoordinator.listDirectories(parent)
-                        preInitScreenStack[preInitScreenStack.lastIndex] = LauncherScreen.DirectoryBrowser(
-                            purpose = screen.purpose,
-                            currentPath = parent,
-                            entries = newEntries
-                        )
-                    }
-                }
-                is LauncherScreen.Setup -> finishAffinity()
-                else -> {}
-            }
-        }
-        inputDispatcher.onStart = {
-            (preInitScreenStack.lastOrNull() as? LauncherScreen.Setup)?.let { screen ->
-                val isCustom = screen.volumes.getOrNull(screen.volumeIndex)?.first == "Custom"
-                val continueEnabled = !isCustom || screen.customPath != null
-                if (continueEnabled) {
-                    val targetPath = if (isCustom) screen.customPath!! else screen.volumes[screen.volumeIndex].second + "Cannoli/"
-                    preInitScreenStack[preInitScreenStack.lastIndex] = LauncherScreen.Installing(targetPath = targetPath)
-                    startInstalling(targetPath)
-                }
-            }
         }
     }
 
