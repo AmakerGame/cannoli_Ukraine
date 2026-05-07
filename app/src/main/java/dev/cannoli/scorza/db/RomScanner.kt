@@ -72,7 +72,7 @@ class RomScanner(
             conn.prepare("INSERT INTO roms (path, platform_tag, display_name, sort_key, tags, disc_paths) VALUES (?, ?, ?, ?, ?, ?)").use { insertStmt ->
                 conn.prepare("UPDATE roms SET display_name = ?, sort_key = ?, tags = ?, disc_paths = ? WHERE id = ?").use { updateStmt ->
                     conn.prepare("DELETE FROM roms WHERE id = ?").use { deleteStmt ->
-                        for (rom in scanned) {
+                        for (rom in scannedByPath.values) {
                             val current = existing[rom.relativePath]
                             val discJson = rom.discPaths?.let { JSONArray(it).toString() }
                             if (current == null) {
