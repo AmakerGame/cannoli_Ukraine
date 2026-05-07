@@ -2,7 +2,6 @@ package dev.cannoli.scorza.ui.screens
 
 import android.graphics.BitmapFactory
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,9 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -48,11 +45,10 @@ import dev.cannoli.ui.components.BottomBar
 import dev.cannoli.ui.components.ConfirmOverlay
 import dev.cannoli.ui.components.LaunchErrorDialog
 import dev.cannoli.ui.components.List
-import dev.cannoli.ui.components.MarqueeEffect
 import dev.cannoli.ui.components.MessageOverlay
 import dev.cannoli.ui.components.MissingAppDialog
 import dev.cannoli.ui.components.MissingCoreDialog
-import dev.cannoli.ui.components.PillRow
+import dev.cannoli.ui.components.PillRowText
 import dev.cannoli.ui.components.ScreenBackground
 import dev.cannoli.ui.components.ScreenTitle
 import dev.cannoli.ui.components.footerReservation
@@ -200,9 +196,11 @@ fun GameListScreen(
                                 val tagSuffix = (item as? ListItem.RomItem)
                                     ?.takeIf { it.rom.displayName in duplicateRomNames }
                                     ?.rom?.tags
-                                ItemRow(
-                                    item = item,
-                                    showFavoriteStar = starred,
+                                val displayName = item.rowDisplayName(showStar = false)
+                                val withStar = if (starred) "$STAR $displayName" else displayName
+                                val label = if (item is ListItem.SubfolderItem) "/ $withStar" else withStar
+                                PillRowText(
+                                    label = label,
                                     isSelected = isSelected,
                                     fontSize = listFontSize,
                                     lineHeight = listLineHeight,
@@ -322,78 +320,3 @@ fun GameListScreen(
     }
 }
 
-@Composable
-private fun ItemRow(
-    item: ListItem,
-    showFavoriteStar: Boolean,
-    isSelected: Boolean,
-    fontSize: TextUnit,
-    lineHeight: TextUnit,
-    verticalPadding: Dp,
-    showReorderIcon: Boolean = false,
-    checkState: Boolean? = null,
-    tagSuffix: String? = null,
-) {
-    val displayName = item.rowDisplayName(showStar = false)
-    val rowText = if (showFavoriteStar) "$STAR $displayName" else displayName
-    val textStyle = MaterialTheme.typography.bodyLarge.copy(
-        fontSize = fontSize,
-        lineHeight = lineHeight
-    )
-    val scrollState = rememberScrollState()
-    MarqueeEffect(scrollState, isSelected, key = rowText to isSelected)
-
-    val colors = LocalCannoliColors.current
-    PillRow(isSelected = isSelected, verticalPadding = verticalPadding, lineHeight = lineHeight) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            if (checkState != null) {
-                Text(
-                    text = if (checkState) "☑" else "☐",
-                    style = textStyle,
-                    color = if (isSelected) colors.highlightText else colors.text
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-            }
-            if (showReorderIcon) {
-                Text(
-                    text = "↕",
-                    style = textStyle,
-                    color = if (isSelected) colors.highlightText else colors.text
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-            }
-            Row(
-                modifier = Modifier
-                    .weight(1f)
-                    .horizontalScroll(scrollState),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                if (item is ListItem.SubfolderItem) {
-                    Text(
-                        text = "/",
-                        style = textStyle,
-                        color = if (isSelected) colors.highlightText else colors.text
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                }
-                Text(
-                    text = rowText,
-                    style = textStyle,
-                    color = if (isSelected) colors.highlightText else colors.text,
-                    maxLines = 1,
-                    softWrap = false
-                )
-                if (tagSuffix != null) {
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = tagSuffix,
-                        style = textStyle.copy(fontSize = fontSize * 0.75f),
-                        color = if (isSelected) colors.highlightText else colors.accent,
-                        maxLines = 1,
-                        softWrap = false
-                    )
-                }
-            }
-        }
-    }
-}
