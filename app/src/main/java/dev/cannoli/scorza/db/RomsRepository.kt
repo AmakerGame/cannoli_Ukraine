@@ -58,7 +58,7 @@ class RomsRepository(
     ) { it.getText(0) to it.getInt(1) }.toMap()
 
     fun knownPlatformTags(): List<String> = db.queryAll(
-        "SELECT tag FROM platforms ORDER BY sort_order, tag",
+        "SELECT tag FROM platforms ORDER BY sort_order, display_name COLLATE NOCASE",
     ) { it.getText(0) }
 
     fun setPlatformOrder(orderedTags: List<String>) = db.transaction { conn ->
