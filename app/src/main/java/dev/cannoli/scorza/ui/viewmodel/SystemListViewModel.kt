@@ -40,7 +40,7 @@ class SystemListViewModel @Inject constructor(
         data object FavoritesItem : ListItem()
         data object CollectionsFolder : ListItem()
         data class PlatformItem(val platform: Platform) : ListItem()
-        data class CollectionItem(val name: String, val count: Int) : ListItem()
+        data class CollectionItem(val id: Long, val name: String, val count: Int) : ListItem()
         data class GameItem(val item: dev.cannoli.scorza.model.ListItem) : ListItem() {
             val displayName: String get() = when (val i = item) {
                 is dev.cannoli.scorza.model.ListItem.RomItem -> i.rom.displayName
@@ -76,7 +76,6 @@ class SystemListViewModel @Inject constructor(
     var firstVisibleIndex: Int = 0
     private data class Saved(val item: ListItem?, val index: Int, val scroll: Int)
     private var savedPosition: Saved? = null
-    private var currentFghStem: String? = null
     private var currentFghCollectionId: Long? = null
 
     fun savePosition(scrollIdx: Int = firstVisibleIndex) {
@@ -85,7 +84,7 @@ class SystemListViewModel @Inject constructor(
         _state.update { it.copy(scrollTarget = scrollIdx) }
     }
 
-    fun scan(showRecentlyPlayed: Boolean = true, contentMode: ContentMode = ContentMode.PLATFORMS, fghCollectionStem: String? = null, toolsName: String = "Tools", portsName: String = "Ports", onProgress: ((tag: String, current: Int, total: Int) -> Unit)? = null, onReady: () -> Unit = {}) {
+    fun scan(showRecentlyPlayed: Boolean = true, contentMode: ContentMode = ContentMode.PLATFORMS, fghCollectionId: Long? = null, toolsName: String = "Tools", portsName: String = "Ports", onProgress: ((tag: String, current: Int, total: Int) -> Unit)? = null, onReady: () -> Unit = {}) {
         val prev = _state.value
         val prevItemCount = prev.items.size
         val restored = savedPosition
@@ -93,7 +92,7 @@ class SystemListViewModel @Inject constructor(
         val prevSelectedItem = restored?.item ?: prev.items.getOrNull(prev.selectedIndex)
         val prevSelectedIndex = restored?.index ?: prev.selectedIndex
         val prevFirstVisible = restored?.scroll ?: firstVisibleIndex
-        currentFghStem = fghCollectionStem
+        currentFghCollectionId = fghCollectionId
 
         scope.launch(Dispatchers.IO) {
             scanAllPlatformDirs { tag, current, total ->
@@ -126,23 +125,18 @@ class SystemListViewModel @Inject constructor(
             val portCount = appsRepository.count(AppType.PORT)
 
             val items = mutableListOf<ListItem>()
-            val collections = collectionsRepository.all()
             val favoritesId = collectionsRepository.favoritesId()
 
             if (contentMode == ContentMode.FIVE_GAME_HANDHELD) {
-                if (fghCollectionStem != null) {
-                    val fghId = collections.firstOrNull { it.displayName.equals(fghCollectionStem, ignoreCase = true) }?.id
-                    currentFghCollectionId = fghId
-                    if (fghId != null) {
-                        collectionsRepository.romIdsIn(fghId)
-                            .mapNotNull { romsRepository.gameById(it) }
-                            .forEach { rom -> items.add(ListItem.GameItem(dev.cannoli.scorza.model.ListItem.RomItem(rom))) }
-                        collectionsRepository.appIdsIn(fghId)
-                            .mapNotNull { appsRepository.byId(it) }
-                            .forEach { app -> items.add(ListItem.GameItem(dev.cannoli.scorza.model.ListItem.AppItem(app))) }
-                    }
-                } else {
-                    currentFghCollectionId = null
+                val fghId = fghCollectionId?.takeIf { collectionsRepository.byId(it) != null }
+                currentFghCollectionId = fghId
+                if (fghId != null) {
+                    collectionsRepository.romIdsIn(fghId)
+                        .mapNotNull { romsRepository.gameById(it) }
+                        .forEach { rom -> items.add(ListItem.GameItem(dev.cannoli.scorza.model.ListItem.RomItem(rom))) }
+                    collectionsRepository.appIdsIn(fghId)
+                        .mapNotNull { appsRepository.byId(it) }
+                        .forEach { app -> items.add(ListItem.GameItem(dev.cannoli.scorza.model.ListItem.AppItem(app))) }
                 }
             } else {
                 currentFghCollectionId = null
@@ -172,7 +166,7 @@ class SystemListViewModel @Inject constructor(
                 ContentMode.COLLECTIONS -> {
                     collectionsRepository.topLevel().forEach { row ->
                         val count = collectionsRepository.romIdsIn(row.id).size + collectionsRepository.appIdsIn(row.id).size
-                        reorderableItems.add(ListItem.CollectionItem(row.displayName, count))
+                        reorderableItems.add(ListItem.CollectionItem(row.id, row.displayName, count))
                     }
                 }
                 ContentMode.FIVE_GAME_HANDHELD -> {}
@@ -319,9 +313,7 @@ class SystemListViewModel @Inject constructor(
                 }
             }
         } else if (collectionItems.isNotEmpty()) {
-            val orderedIds = collectionItems.mapNotNull { ci ->
-                collectionsRepository.all().firstOrNull { it.displayName == ci.name }?.id
-            }
+            val orderedIds = collectionItems.map { it.id }
             scope.launch(Dispatchers.IO) {
                 collectionsRepository.setCollectionOrder(orderedIds)
             }
@@ -342,10 +334,10 @@ class SystemListViewModel @Inject constructor(
         romScanner.ensureReservedPlatformTag(tag)
     }
 
-    fun cancelReorder(showRecentlyPlayed: Boolean = true, contentMode: ContentMode = ContentMode.PLATFORMS, fghCollectionStem: String? = null, toolsName: String = "Tools", portsName: String = "Ports") {
+    fun cancelReorder(showRecentlyPlayed: Boolean = true, contentMode: ContentMode = ContentMode.PLATFORMS, fghCollectionId: Long? = null, toolsName: String = "Tools", portsName: String = "Ports") {
         val current = _state.value
         if (!current.reorderMode) return
-        scan(showRecentlyPlayed, contentMode, fghCollectionStem, toolsName, portsName)
+        scan(showRecentlyPlayed, contentMode, fghCollectionId, toolsName, portsName)
     }
 
     private fun ListItem.isReorderable(): Boolean = this is ListItem.PlatformItem || this is ListItem.ToolsFolder || this is ListItem.PortsFolder || this is ListItem.CollectionItem || this is ListItem.GameItem

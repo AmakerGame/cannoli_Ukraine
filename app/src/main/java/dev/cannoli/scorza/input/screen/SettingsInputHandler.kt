@@ -157,8 +157,8 @@ class SettingsInputHandler @Inject constructor(
             else -> {
                 when {
                     key.startsWith("fgh_pick:") -> {
-                        val stem = key.removePrefix("fgh_pick:")
-                        settingsViewModel.selectFghCollectionStem(stem)
+                        val id = key.removePrefix("fgh_pick:").toLongOrNull()
+                        settingsViewModel.selectFghCollectionId(id)
                         settingsViewModel.save()
                         settingsViewModel.exitSubList()
                         launcherActions.rescanSystemList()

@@ -218,8 +218,8 @@ class SettingsRepository @Inject constructor(@ApplicationContext context: Contex
         get() = ContentMode.fromString(jsonRead { if (has(KEY_CONTENT_MODE)) optString(KEY_CONTENT_MODE) else null })
         set(value) = jsonWrite { put(KEY_CONTENT_MODE, value.name) }
 
-    var fghCollectionStem: String?
-        get() = jsonRead { optString(KEY_FGH_COLLECTION, "").ifEmpty { null } }
+    var fghCollectionId: Long?
+        get() = jsonRead { if (has(KEY_FGH_COLLECTION)) optLong(KEY_FGH_COLLECTION).takeIf { it > 0 } else null }
         set(value) = jsonWrite { if (value == null) remove(KEY_FGH_COLLECTION) else put(KEY_FGH_COLLECTION, value) }
 
     var artWidth: Int

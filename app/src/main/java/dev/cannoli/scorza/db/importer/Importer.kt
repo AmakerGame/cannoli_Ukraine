@@ -11,7 +11,6 @@ import dev.cannoli.scorza.db.execute
 import dev.cannoli.scorza.db.executeReturningId
 import dev.cannoli.scorza.db.query
 import dev.cannoli.scorza.db.transaction
-import dev.cannoli.scorza.model.Collection
 import dev.cannoli.scorza.util.ScanLog
 import java.io.File
 import java.io.IOException
@@ -350,7 +349,18 @@ class Importer(
     private fun scanLegacyCollections(): List<Pair<String, String>> {
         if (!collectionsDir.exists()) return emptyList()
         val files = collectionsDir.listFiles { f -> f.extension == "txt" } ?: return emptyList()
-        return files.map { it.nameWithoutExtension to Collection.stemToDisplayName(it.nameWithoutExtension) }
+        return files.map { it.nameWithoutExtension to legacyStemToDisplayName(it.nameWithoutExtension) }
+    }
+
+    private fun legacyStemToDisplayName(stem: String): String {
+        val idx = stem.lastIndexOf('_')
+        if (idx < 0) return stem
+        val suffix = stem.substring(idx + 1)
+        return if (suffix.length == 4 && suffix.all { it in '0'..'9' || it in 'a'..'f' }) {
+            stem.substring(0, idx)
+        } else {
+            stem
+        }
     }
 
     private fun readLegacyCollectionMembers(stem: String): List<String> {

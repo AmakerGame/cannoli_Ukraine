@@ -74,8 +74,8 @@ private val ListItem.itemKey: String get() = when (this) {
     is ListItem.RomItem -> "rom:${rom.id}"
     is ListItem.AppItem -> "app:${app.id}"
     is ListItem.SubfolderItem -> "sub:$path"
-    is ListItem.CollectionItem -> "coll:${collection.stem}"
-    is ListItem.ChildCollectionItem -> "child:${collection.stem}"
+    is ListItem.CollectionItem -> "coll:${collection.id}"
+    is ListItem.ChildCollectionItem -> "child:${collection.id}"
 }
 
 private val ListItem.isLeafSelectable: Boolean get() = this is ListItem.RomItem || this is ListItem.AppItem
@@ -131,8 +131,7 @@ fun GameListScreen(
         } else null
     }
 
-    val inFavoritesCollection = state.isCollection &&
-        state.collectionName?.equals("Favorites", ignoreCase = true) == true
+    val inFavoritesCollection = state.isCollection && state.isFavorites
     val showFavoriteStars = viewModel.showFavoriteStars && !inFavoritesCollection
     val favoriteRomIds = state.favoriteRomIds
     val favoriteAppIds = state.favoriteAppIds
@@ -319,7 +318,7 @@ fun GameListScreen(
             message = stringResource(R.string.dialog_delete_confirm, dialogState.gameName)
         )
         is DialogState.DeleteCollectionConfirm -> ConfirmOverlay(
-            message = stringResource(R.string.dialog_delete_confirm, dev.cannoli.scorza.model.Collection.stemToDisplayName(dialogState.collectionStem))
+            message = stringResource(R.string.dialog_delete_confirm, dialogState.displayName)
         )
         else -> {}
     }

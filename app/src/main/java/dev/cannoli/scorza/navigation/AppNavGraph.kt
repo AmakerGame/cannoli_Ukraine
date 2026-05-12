@@ -109,16 +109,16 @@ sealed class LauncherScreen {
         override val itemCount: Int get() = colors.size
         override fun withScroll(selectedIndex: Int, scrollTarget: Int) = copy(selectedIndex = selectedIndex, scrollTarget = scrollTarget)
     }
-    data class CollectionPicker(val gamePaths: List<String>, val title: String, val collections: List<String>, val displayNames: List<String> = emptyList(), override val selectedIndex: Int = 0, val checkedIndices: Set<Int> = emptySet(), val initialChecked: Set<Int> = emptySet(), override val scrollTarget: Int = 0) : LauncherScreen(), ScrollableScreen {
-        override val itemCount: Int get() = collections.size
+    data class CollectionPicker(val gamePaths: List<String>, val title: String, val collectionIds: List<Long>, val displayNames: List<String> = emptyList(), override val selectedIndex: Int = 0, val checkedIndices: Set<Int> = emptySet(), val initialChecked: Set<Int> = emptySet(), override val scrollTarget: Int = 0) : LauncherScreen(), ScrollableScreen {
+        override val itemCount: Int get() = collectionIds.size
         override fun withScroll(selectedIndex: Int, scrollTarget: Int) = copy(selectedIndex = selectedIndex, scrollTarget = scrollTarget)
     }
     data class AppPicker(val type: String, val title: String, val apps: List<String>, val packages: List<String>, override val selectedIndex: Int = 0, val checkedIndices: Set<Int> = emptySet(), val initialChecked: Set<Int> = emptySet(), override val scrollTarget: Int = 0) : LauncherScreen(), ScrollableScreen {
         override val itemCount: Int get() = apps.size
         override fun withScroll(selectedIndex: Int, scrollTarget: Int) = copy(selectedIndex = selectedIndex, scrollTarget = scrollTarget)
     }
-    data class ChildPicker(val collectionName: String, val collections: List<String>, val displayNames: List<String> = emptyList(), override val selectedIndex: Int = 0, val checkedIndices: Set<Int> = emptySet(), val initialChecked: Set<Int> = emptySet(), override val scrollTarget: Int = 0) : LauncherScreen(), ScrollableScreen {
-        override val itemCount: Int get() = collections.size
+    data class ChildPicker(val parentId: Long, val collectionIds: List<Long>, val displayNames: List<String> = emptyList(), override val selectedIndex: Int = 0, val checkedIndices: Set<Int> = emptySet(), val initialChecked: Set<Int> = emptySet(), override val scrollTarget: Int = 0) : LauncherScreen(), ScrollableScreen {
+        override val itemCount: Int get() = collectionIds.size
         override fun withScroll(selectedIndex: Int, scrollTarget: Int) = copy(selectedIndex = selectedIndex, scrollTarget = scrollTarget)
     }
     data class Controllers(
@@ -463,7 +463,7 @@ fun AppNavGraph(
                     rightBottomItems = emptyList(),
                     buttonStyle = labels
                 ) {
-                    if (currentScreen.collections.isEmpty()) {
+                    if (currentScreen.collectionIds.isEmpty()) {
                         Text(
                             text = stringResource(R.string.no_collections),
                             style = MaterialTheme.typography.bodyLarge,
@@ -472,14 +472,14 @@ fun AppNavGraph(
                         )
                     } else {
                         List(
-                            items = currentScreen.collections,
+                            items = currentScreen.collectionIds,
                             selectedIndex = currentScreen.selectedIndex,
                             itemHeight = itemHeight,
                             scrollTarget = currentScreen.scrollTarget,
                             onVisibleRangeChanged = onVisibleRangeChanged
                         ) { index, _, isSelected ->
                             PillRowText(
-                                label = currentScreen.displayNames.getOrElse(index) { currentScreen.collections[index] },
+                                label = currentScreen.displayNames.getOrElse(index) { "" },
                                 isSelected = isSelected,
                                 fontSize = listFontSize,
                                 lineHeight = listLineHeight,
@@ -516,7 +516,7 @@ fun AppNavGraph(
                     rightBottomItems = emptyList(),
                     buttonStyle = labels
                 ) {
-                    if (currentScreen.collections.isEmpty()) {
+                    if (currentScreen.collectionIds.isEmpty()) {
                         Text(
                             text = stringResource(R.string.no_collections),
                             style = MaterialTheme.typography.bodyLarge,
@@ -525,14 +525,14 @@ fun AppNavGraph(
                         )
                     } else {
                         List(
-                            items = currentScreen.collections,
+                            items = currentScreen.collectionIds,
                             selectedIndex = currentScreen.selectedIndex,
                             itemHeight = itemHeight,
                             scrollTarget = currentScreen.scrollTarget,
                             onVisibleRangeChanged = onVisibleRangeChanged
                         ) { index, _, isSelected ->
                             PillRowText(
-                                label = currentScreen.displayNames.getOrElse(index) { currentScreen.collections[index] },
+                                label = currentScreen.displayNames.getOrElse(index) { "" },
                                 isSelected = isSelected,
                                 fontSize = listFontSize,
                                 lineHeight = listLineHeight,

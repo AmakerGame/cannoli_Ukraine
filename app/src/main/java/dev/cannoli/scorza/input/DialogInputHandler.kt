@@ -343,15 +343,13 @@ class DialogInputHandler @Inject constructor(
                 }
             }
             is DialogState.DeleteCollectionConfirm -> {
-                val stem = ds.collectionStem
                 val glState = gameListViewModel.state.value
                 val deletingFromParent = glState.isCollection && !glState.isCollectionsList
                 pendingContextReturn = null
                 nav.dialogState.value = DialogState.None
                 if (!deletingFromParent) gameListViewModel.saveCollectionsPosition()
                 ioScope.launch {
-                    val id = collectionManager.all().firstOrNull { it.displayName == stem }?.id
-                    if (id != null) collectionManager.delete(id)
+                    collectionManager.delete(ds.collectionId)
                     if (deletingFromParent) {
                         gameListViewModel.reload()
                         launcherActions.rescanSystemList()
@@ -701,7 +699,8 @@ class DialogInputHandler @Inject constructor(
             selected == MENU_RENAME -> {
                 if (collection != null) {
                     nav.dialogState.value = DialogState.CollectionRenameInput(
-                        oldStem = collection.stem,
+                        collectionId = collection.id,
+                        oldDisplayName = collection.displayName,
                         currentName = displayName,
                         cursorPos = displayName.length
                     )
@@ -715,7 +714,7 @@ class DialogInputHandler @Inject constructor(
             }
             selected == MENU_DELETE || selected == MENU_DELETE_GAME -> {
                 if (collection != null) {
-                    nav.dialogState.value = DialogState.DeleteCollectionConfirm(collectionStem = collection.stem)
+                    nav.dialogState.value = DialogState.DeleteCollectionConfirm(collectionId = collection.id, displayName = collection.displayName)
                 } else {
                     nav.dialogState.value = DialogState.DeleteConfirm(gameName = displayName)
                 }
@@ -725,7 +724,7 @@ class DialogInputHandler @Inject constructor(
                 openCollectionManager(listOf(path), displayName)
             }
             selected == MENU_CHILD_COLLECTIONS -> {
-                if (collection != null) openChildPicker(collection.stem)
+                if (collection != null) openChildPicker(collection.id)
             }
             selected == MENU_DELETE_ART -> {
                 if (rom != null) {
@@ -811,9 +810,10 @@ class DialogInputHandler @Inject constructor(
             }
             MENU_ADD_FAVORITE -> {
                 pendingContextReturn = null
+                val favoritesId = collectionManager.favoritesId()
                 ioScope.launch {
-                    state.gamePaths.forEach { path ->
-                        addPathToCollectionByName("Favorites", path)
+                    if (favoritesId != null) {
+                        state.gamePaths.forEach { path -> addPathToCollection(favoritesId, path) }
                     }
                     gameListViewModel.reload()
                     launcherActions.rescanSystemList()
@@ -822,9 +822,10 @@ class DialogInputHandler @Inject constructor(
             }
             MENU_REMOVE_FAVORITE -> {
                 pendingContextReturn = null
+                val favoritesId = collectionManager.favoritesId()
                 ioScope.launch {
-                    state.gamePaths.forEach { path ->
-                        removePathFromCollectionByName("Favorites", path)
+                    if (favoritesId != null) {
+                        state.gamePaths.forEach { path -> removePathFromCollection(favoritesId, path) }
                     }
                     gameListViewModel.reload()
                     launcherActions.rescanSystemList()
@@ -923,13 +924,13 @@ class DialogInputHandler @Inject constructor(
     fun onCollectionPickerConfirm(state: LauncherScreen.CollectionPicker) {
         val added = state.checkedIndices - state.initialChecked
         val removed = state.initialChecked - state.checkedIndices
-        val toAdd = added.mapNotNull { state.collections.getOrNull(it) }
-        val toRemove = removed.mapNotNull { state.collections.getOrNull(it) }
+        val toAdd = added.mapNotNull { state.collectionIds.getOrNull(it) }
+        val toRemove = removed.mapNotNull { state.collectionIds.getOrNull(it) }
         if (toAdd.isNotEmpty() || toRemove.isNotEmpty()) {
             ioScope.launch {
                 for (path in state.gamePaths) {
-                    toAdd.forEach { collName -> addPathToCollectionByName(collName, path) }
-                    toRemove.forEach { collName -> removePathFromCollectionByName(collName, path) }
+                    toAdd.forEach { id -> addPathToCollection(id, path) }
+                    toRemove.forEach { id -> removePathFromCollection(id, path) }
                 }
                 gameListViewModel.reload()
                 launcherActions.rescanSystemList()
@@ -940,18 +941,16 @@ class DialogInputHandler @Inject constructor(
     }
 
     fun onChildPickerConfirm(screen: LauncherScreen.ChildPicker) {
-        val parent = collectionManager.all().firstOrNull { it.displayName == screen.collectionName }
-        if (parent == null) {
+        val parentId = screen.parentId
+        if (collectionManager.byId(parentId) == null) {
             nav.screenStack.removeAt(nav.screenStack.lastIndex)
             restoreContextMenu()
             return
         }
-        val selectedNames = screen.checkedIndices.mapNotNull { screen.collections.getOrNull(it) }.toSet()
-        val all = collectionManager.all()
-        val targetChildIds = all.filter { it.displayName in selectedNames }.map { it.id }.toSet()
-        val currentChildIds = collectionManager.children(parent.id).map { it.id }.toSet()
+        val targetChildIds = screen.checkedIndices.mapNotNull { screen.collectionIds.getOrNull(it) }.toSet()
+        val currentChildIds = collectionManager.children(parentId).map { it.id }.toSet()
         ioScope.launch {
-            (targetChildIds - currentChildIds).forEach { collectionManager.setParent(it, parent.id) }
+            (targetChildIds - currentChildIds).forEach { collectionManager.setParent(it, parentId) }
             (currentChildIds - targetChildIds).forEach { collectionManager.setParent(it, null) }
             gameListViewModel.reload()
             launcherActions.rescanSystemList()
@@ -1003,7 +1002,7 @@ class DialogInputHandler @Inject constructor(
             rom != null -> rom.id in glState.favoriteRomIds
             app != null -> app.id in glState.favoriteAppIds
             else -> false
-        } || (glState.isCollection && glState.collectionName == "Favorites")
+        } || (glState.isCollection && glState.isFavorites)
         return buildList {
             if (glState.platformTag == "recently_played") add(MENU_REMOVE_FROM_RECENTS)
             add(if (isFav) MENU_REMOVE_FAVORITE else MENU_ADD_FAVORITE)
@@ -1044,17 +1043,17 @@ class DialogInputHandler @Inject constructor(
 
     fun openCollectionManager(gamePaths: List<String>, title: String) {
         val all = collectionManager.all().filter { it.type == CollectionType.STANDARD }
-        val stems = all.map { it.displayName }
+        val ids = all.map { it.id }
         val displayNames = all.map { it.displayName }
         val alreadyIn = collectionsContainingPaths(gamePaths, all)
-        val initialChecked = stems.indices
-            .filter { stems[it] in alreadyIn }
+        val initialChecked = ids.indices
+            .filter { ids[it] in alreadyIn }
             .toSet()
         nav.dialogState.value = DialogState.None
         nav.screenStack.add(LauncherScreen.CollectionPicker(
             gamePaths = gamePaths,
             title = title,
-            collections = stems,
+            collectionIds = ids,
             displayNames = displayNames,
             selectedIndex = 0,
             checkedIndices = initialChecked,
@@ -1062,12 +1061,12 @@ class DialogInputHandler @Inject constructor(
         ))
     }
 
-    fun openChildPicker(collectionStem: String) {
-        val parent = collectionManager.all().firstOrNull { it.displayName == collectionStem } ?: return
+    fun openChildPicker(parentId: Long) {
+        val parent = collectionManager.byId(parentId) ?: return
         val all = collectionManager.all().filter { it.type == CollectionType.STANDARD }
         val ancestorIds = collectionManager.ancestors(parent.id).map { it.id }.toSet() + parent.id
         val available = all.filter { it.id !in ancestorIds }
-        val availableNames = available.map { it.displayName }
+        val availableIds = available.map { it.id }
         val displayNames = available.map { it.displayName }
         val currentChildIds = collectionManager.children(parent.id).map { it.id }.toSet()
         val initialChecked = available.indices
@@ -1075,8 +1074,8 @@ class DialogInputHandler @Inject constructor(
             .toSet()
         nav.dialogState.value = DialogState.None
         nav.screenStack.add(LauncherScreen.ChildPicker(
-            collectionName = collectionStem,
-            collections = availableNames,
+            parentId = parent.id,
+            collectionIds = availableIds,
             displayNames = displayNames,
             selectedIndex = 0,
             checkedIndices = initialChecked,
@@ -1125,9 +1124,8 @@ class DialogInputHandler @Inject constructor(
         nav.dialogState.value = DialogState.None
         ioScope.launch {
             val newId = collectionManager.create(name)
-            if (state.parentStem != null) {
-                val parentId = collectionManager.all().firstOrNull { it.displayName == state.parentStem }?.id
-                if (parentId != null) collectionManager.setParent(newId, parentId)
+            if (state.parentId != null) {
+                collectionManager.setParent(newId, state.parentId)
             }
             state.gamePaths.forEach { path ->
                 resolvePathToRef(path)?.let { collectionManager.addMember(newId, it) }
@@ -1140,7 +1138,7 @@ class DialogInputHandler @Inject constructor(
 
     private fun onCollectionRenameConfirm(state: DialogState.CollectionRenameInput) {
         val newName = state.currentName.trim()
-        if (newName.isEmpty() || newName == dev.cannoli.scorza.model.Collection.stemToDisplayName(state.oldStem)) {
+        if (newName.isEmpty() || newName == state.oldDisplayName) {
             restoreContextMenu()
             return
         }
@@ -1148,8 +1146,7 @@ class DialogInputHandler @Inject constructor(
         val renamingFromParent = glState.isCollection && !glState.isCollectionsList
         nav.dialogState.value = DialogState.None
         ioScope.launch {
-            val id = collectionManager.all().firstOrNull { it.displayName == state.oldStem }?.id
-            if (id != null) collectionManager.rename(id, newName)
+            collectionManager.rename(state.collectionId, newName)
             if (renamingFromParent) {
                 gameListViewModel.reload()
             } else {
@@ -1360,18 +1357,18 @@ class DialogInputHandler @Inject constructor(
         val cp = nav.currentScreen
         if (cp is LauncherScreen.CollectionPicker) {
             val all = collectionManager.all().filter { it.type == CollectionType.STANDARD }
-            val stems = all.map { it.displayName }
+            val ids = all.map { it.id }
             val displayNames = all.map { it.displayName }
             val alreadyIn = collectionsContainingPaths(cp.gamePaths, all)
-            val newInitialChecked = stems.indices
-                .filter { stems[it] in alreadyIn }
+            val newInitialChecked = ids.indices
+                .filter { ids[it] in alreadyIn }
                 .toSet()
-            val oldCheckedStems = cp.checkedIndices.mapNotNull { cp.collections.getOrNull(it) }.toSet()
-            val newCheckedIndices = stems.indices
-                .filter { stems[it] in oldCheckedStems || stems[it] in alreadyIn }
+            val oldCheckedIds = cp.checkedIndices.mapNotNull { cp.collectionIds.getOrNull(it) }.toSet()
+            val newCheckedIndices = ids.indices
+                .filter { ids[it] in oldCheckedIds || ids[it] in alreadyIn }
                 .toSet()
             nav.screenStack[nav.screenStack.lastIndex] = cp.copy(
-                collections = stems,
+                collectionIds = ids,
                 displayNames = displayNames,
                 checkedIndices = newCheckedIndices,
                 initialChecked = newInitialChecked
@@ -1379,29 +1376,25 @@ class DialogInputHandler @Inject constructor(
         }
     }
 
-    private fun collectionsContainingPaths(gamePaths: List<String>, candidates: List<CollectionsRepository.CollectionRow>): Set<String> {
+    private fun collectionsContainingPaths(gamePaths: List<String>, candidates: List<CollectionsRepository.CollectionRow>): Set<Long> {
         if (gamePaths.isEmpty()) return emptySet()
         val sets = gamePaths.map { path ->
-            val ref = resolvePathToRef(path) ?: return@map emptySet<String>()
+            val ref = resolvePathToRef(path) ?: return@map emptySet<Long>()
             val ids = collectionManager.collectionsContaining(ref)
-            candidates.asSequence().filter { it.id in ids }.map { it.displayName }.toSet()
+            candidates.asSequence().map { it.id }.filter { it in ids }.toSet()
         }
         return if (gamePaths.size == 1) sets.first()
         else sets.reduceOrNull { acc, set -> acc intersect set } ?: emptySet()
     }
 
-    private fun addPathToCollectionByName(collectionName: String, path: String) {
-        val id = if (collectionName.equals("Favorites", ignoreCase = true)) collectionManager.favoritesId()
-        else collectionManager.all().firstOrNull { it.displayName == collectionName }?.id
-        val ref = resolvePathToRef(path)
-        if (id != null && ref != null) collectionManager.addMember(id, ref)
+    private fun addPathToCollection(collectionId: Long, path: String) {
+        val ref = resolvePathToRef(path) ?: return
+        collectionManager.addMember(collectionId, ref)
     }
 
-    private fun removePathFromCollectionByName(collectionName: String, path: String) {
-        val id = if (collectionName.equals("Favorites", ignoreCase = true)) collectionManager.favoritesId()
-        else collectionManager.all().firstOrNull { it.displayName == collectionName }?.id
-        val ref = resolvePathToRef(path)
-        if (id != null && ref != null) collectionManager.removeMember(id, ref)
+    private fun removePathFromCollection(collectionId: Long, path: String) {
+        val ref = resolvePathToRef(path) ?: return
+        collectionManager.removeMember(collectionId, ref)
     }
 
     private fun resolvePathToRef(path: String): dev.cannoli.scorza.db.LibraryRef? {

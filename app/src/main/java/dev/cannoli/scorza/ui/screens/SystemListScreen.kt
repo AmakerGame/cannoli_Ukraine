@@ -187,7 +187,7 @@ fun SystemListScreen(
                             is ListItem.FavoritesItem -> "favorites"
                             is ListItem.CollectionsFolder -> "collections"
                             is ListItem.PlatformItem -> item.platform.tag
-                            is ListItem.CollectionItem -> "col:${item.name}"
+                            is ListItem.CollectionItem -> "col:${item.id}"
                             is ListItem.GameItem -> "game:${item.recentKey}"
                             is ListItem.ToolsFolder -> "tools"
                             is ListItem.PortsFolder -> "ports"
@@ -199,7 +199,7 @@ fun SystemListScreen(
                         is ListItem.FavoritesItem -> favoritesLabel
                         is ListItem.CollectionsFolder -> collectionsLabel
                         is ListItem.PlatformItem -> item.platform.displayName
-                        is ListItem.CollectionItem -> dev.cannoli.scorza.model.Collection.stemToDisplayName(item.name)
+                        is ListItem.CollectionItem -> item.name
                         is ListItem.GameItem -> item.displayName
                         is ListItem.ToolsFolder -> item.name
                         is ListItem.PortsFolder -> item.name

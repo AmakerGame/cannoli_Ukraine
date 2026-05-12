@@ -12,6 +12,7 @@ import dev.cannoli.scorza.db.RomScanner
 import dev.cannoli.scorza.db.RomsRepository
 import dev.cannoli.scorza.model.AppType
 import dev.cannoli.scorza.model.Collection
+import dev.cannoli.scorza.model.CollectionType
 import dev.cannoli.scorza.model.ListItem
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -52,6 +53,7 @@ class GameListViewModel @Inject constructor(
         val subfolderPath: String? = null,
         val isLoading: Boolean = true,
         val isCollection: Boolean = false,
+        val isFavorites: Boolean = false,
         val collectionName: String? = null,
         val collectionId: Long? = null,
         val isCollectionsList: Boolean = false,
@@ -107,7 +109,7 @@ class GameListViewModel @Inject constructor(
         }
     }
 
-    fun loadCollection(collectionName: String, onReady: () -> Unit = {}) {
+    fun loadCollectionById(id: Long, onReady: () -> Unit = {}) {
         val current = _state.value
         if (current.isCollectionsList) {
             collectionsListSaved = current.selectedIndex to firstVisibleIndex
@@ -117,30 +119,25 @@ class GameListViewModel @Inject constructor(
         indexStack.clear()
         collectionStack.clear()
         scope.launch(Dispatchers.IO) {
-            val id = resolveCollectionByName(collectionName)
-            if (id == null) {
-                _state.value = State(
-                    breadcrumb = collectionName,
-                    items = emptyList(),
-                    isLoading = false,
-                    isCollection = true,
-                    collectionName = collectionName,
-                    collectionId = null,
-                )
-                withContext(Dispatchers.Main) { onReady() }
-                return@launch
-            }
             loadCollectionByIdInternal(id, onReady)
         }
     }
 
-    fun enterChildCollection(childStem: String, onReady: () -> Unit = {}) {
+    fun loadFavorites(onReady: () -> Unit = {}) {
+        val id = collectionsRepository.favoritesId()
+        if (id == null) {
+            onReady()
+            return
+        }
+        loadCollectionById(id, onReady)
+    }
+
+    fun enterChildCollectionById(id: Long, onReady: () -> Unit = {}) {
         val current = _state.value
         if (current.isCollection && current.collectionId != null) {
             collectionStack.add(Triple(current.collectionId, current.selectedIndex, firstVisibleIndex))
         }
         scope.launch(Dispatchers.IO) {
-            val id = resolveCollectionByName(childStem) ?: return@launch
             loadCollectionByIdInternal(id, onReady)
         }
     }
@@ -164,14 +161,14 @@ class GameListViewModel @Inject constructor(
             return
         }
         val children = collectionsRepository.children(collectionId)
-        val childItems = children.map { ListItem.ChildCollectionItem(childCollection(it.id, it.displayName)) }
+        val childItems = children.map { ListItem.ChildCollectionItem(Collection(it.id, it.displayName)) }
         val romIds = collectionsRepository.romIdsIn(collectionId)
         val appIds = collectionsRepository.appIdsIn(collectionId)
         val romItems = romIds.mapNotNull { romsRepository.gameById(it) }.map { ListItem.RomItem(it) }
         val appItems = appIds.mapNotNull { appsRepository.byId(it) }.map { ListItem.AppItem(it) }
         val combined = childItems + romItems + appItems
-        val items = if (row.displayName.equals("Favorites", ignoreCase = true)) combined
-        else sortFavoritesFirst(combined)
+        val isFavorites = row.type == CollectionType.FAVORITES
+        val items = if (isFavorites) combined else sortFavoritesFirst(combined)
         val parent = row.parentId?.let { collectionsRepository.byId(it) }
         val breadcrumb = if (parent != null) "/${row.displayName}" else row.displayName
         _state.value = State(
@@ -182,6 +179,7 @@ class GameListViewModel @Inject constructor(
             selectedIndex = 0,
             isLoading = false,
             isCollection = true,
+            isFavorites = isFavorites,
             collectionName = row.displayName,
             collectionId = collectionId,
         )
@@ -247,7 +245,7 @@ class GameListViewModel @Inject constructor(
         scope.launch(Dispatchers.IO) {
             val collections = collectionsRepository.topLevel()
             val items = collections.map { row ->
-                ListItem.CollectionItem(topLevelCollection(row.id, row.displayName))
+                ListItem.CollectionItem(Collection(row.id, row.displayName))
             }
             val (idx, scroll) = if (restoreIndex && collectionsListItemCount > 0 && items.isNotEmpty()) {
                 val maxIdx = items.lastIndex.coerceAtLeast(0)
@@ -365,19 +363,19 @@ class GameListViewModel @Inject constructor(
         scope.launch(Dispatchers.IO) {
             val favId = collectionsRepository.favoritesId() ?: return@launch
             val isFav = collectionsRepository.isMember(favId, ref) ||
-                (current.isCollection && current.collectionName == "Favorites")
+                (current.isCollection && current.isFavorites)
             if (isFav) collectionsRepository.removeMember(favId, ref)
             else collectionsRepository.addMember(favId, ref)
             val newItems = if (current.isCollection && current.collectionId != null) {
                 val romIds = collectionsRepository.romIdsIn(current.collectionId)
                 val appIds = collectionsRepository.appIdsIn(current.collectionId)
                 val children = collectionsRepository.children(current.collectionId).map {
-                    ListItem.ChildCollectionItem(childCollection(it.id, it.displayName))
+                    ListItem.ChildCollectionItem(Collection(it.id, it.displayName))
                 }
                 val roms = romIds.mapNotNull { romsRepository.gameById(it) }.map { ListItem.RomItem(it) }
                 val apps = appIds.mapNotNull { appsRepository.byId(it) }.map { ListItem.AppItem(it) }
                 val combined = children + roms + apps
-                if (current.collectionName.equals("Favorites", ignoreCase = true)) combined
+                if (current.isFavorites) combined
                 else sortFavoritesFirst(combined)
             } else if (current.platformTag == "tools" || current.platformTag == "ports") {
                 val type = if (current.platformTag == "tools") AppType.TOOL else AppType.PORT
@@ -495,7 +493,7 @@ class GameListViewModel @Inject constructor(
         val current = _state.value
         if (!current.reorderMode) return
         if (current.isCollectionsList) {
-            val ids = current.items.mapNotNull { (it as? ListItem.CollectionItem)?.collection?.let(::collectionStemToId) }
+            val ids = current.items.mapNotNull { (it as? ListItem.CollectionItem)?.collection?.id }
             scope.launch(Dispatchers.IO) { collectionsRepository.setCollectionOrder(ids) }
         } else if (current.platformTag == "tools" || current.platformTag == "ports") {
             val type = if (current.platformTag == "tools") AppType.TOOL else AppType.PORT
@@ -503,7 +501,7 @@ class GameListViewModel @Inject constructor(
             scope.launch(Dispatchers.IO) { appsRepository.setOrder(type, ids) }
         } else if (current.isCollection && current.collectionId != null) {
             val collectionId = current.collectionId
-            val childIds = current.items.mapNotNull { (it as? ListItem.ChildCollectionItem)?.collection?.let(::collectionStemToId) }
+            val childIds = current.items.mapNotNull { (it as? ListItem.ChildCollectionItem)?.collection?.id }
             val memberRefs = current.items.mapNotNull { itemRef(it) }
             scope.launch(Dispatchers.IO) {
                 collectionsRepository.setCollectionOrder(childIds)
@@ -581,23 +579,6 @@ class GameListViewModel @Inject constructor(
             }
         }
         return subfolders + favs + rest
-    }
-
-    private fun resolveCollectionByName(name: String): Long? {
-        if (name.equals("Favorites", ignoreCase = true)) return collectionsRepository.favoritesId()
-        return collectionsRepository.all().firstOrNull { it.displayName.equals(name, ignoreCase = true) }?.id
-    }
-
-    private fun collectionStemToId(coll: Collection): Long? {
-        return collectionsRepository.all().firstOrNull { it.displayName == coll.displayName }?.id
-    }
-
-    private fun topLevelCollection(id: Long, displayName: String): Collection {
-        return Collection(stem = displayName, file = File(displayName))
-    }
-
-    private fun childCollection(id: Long, displayName: String): Collection {
-        return Collection(stem = displayName, file = File(displayName))
     }
 
     private fun itemRef(item: ListItem): LibraryRef? = when (item) {

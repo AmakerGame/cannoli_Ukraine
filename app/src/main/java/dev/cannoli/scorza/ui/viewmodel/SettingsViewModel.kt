@@ -10,7 +10,6 @@ import dagger.hilt.android.scopes.ActivityScoped
 import dev.cannoli.scorza.R
 import dev.cannoli.scorza.db.CollectionsRepository
 import dev.cannoli.scorza.launcher.InstalledCoreService
-import dev.cannoli.scorza.model.Collection
 import dev.cannoli.scorza.model.CollectionType
 import dev.cannoli.scorza.settings.ArtScale
 import dev.cannoli.scorza.settings.BatteryDisplay
@@ -137,7 +136,8 @@ class SettingsViewModel @Inject constructor(
         val artWidth: Int = 40,
         val artScale: ArtScale = ArtScale.DEFAULT,
         val contentMode: ContentMode = ContentMode.PLATFORMS,
-        val fghCollectionStem: String? = null,
+        val fghCollectionId: Long? = null,
+        val fghCollectionDisplayName: String? = null,
         val portraitMarginPx: Int = 0,
     )
 
@@ -173,7 +173,10 @@ class SettingsViewModel @Inject constructor(
         artWidth = settings.artWidth,
         artScale = settings.artScale,
         contentMode = settings.contentMode,
-        fghCollectionStem = settings.fghCollectionStem,
+        fghCollectionId = settings.fghCollectionId,
+        fghCollectionDisplayName = settings.fghCollectionId?.let { id ->
+            collectionsRepository?.byId(id)?.displayName
+        },
         portraitMarginPx = settings.portraitMarginPx,
     )
 
@@ -218,7 +221,7 @@ class SettingsViewModel @Inject constructor(
         val batteryDisplay: BatteryDisplay,
         val showRecentlyPlayed: Boolean,
         val contentMode: ContentMode,
-        val fghCollectionStem: String?,
+        val fghCollectionId: Long?,
         val sdRoot: String,
         val romDirectory: String,
         val raPackage: String,
@@ -333,13 +336,13 @@ class SettingsViewModel @Inject constructor(
     }
 
     fun fghPickerInitialIndex(): Int {
-        val stems = fghCollectionStems()
-        val cur = settings.fghCollectionStem ?: return 0
-        return stems.indexOf(cur).coerceAtLeast(0)
+        val ids = fghCollections().map { it.id }
+        val cur = settings.fghCollectionId ?: return 0
+        return ids.indexOf(cur).coerceAtLeast(0)
     }
 
-    fun selectFghCollectionStem(stem: String?) {
-        settings.fghCollectionStem = stem
+    fun selectFghCollectionId(id: Long?) {
+        settings.fghCollectionId = id
         _appSettings.value = readAppSettings()
     }
 
@@ -416,11 +419,11 @@ class SettingsViewModel @Inject constructor(
                 settings.contentMode = entries[((cur + direction) % entries.size + entries.size) % entries.size]
             }
             "fgh_collection" -> {
-                val stems = fghCollectionStems()
-                if (stems.isNotEmpty()) {
-                    val cur = stems.indexOf(settings.fghCollectionStem).coerceAtLeast(0)
-                    val next = ((cur + direction) % stems.size + stems.size) % stems.size
-                    settings.fghCollectionStem = stems[next]
+                val ids = fghCollections().map { it.id }
+                if (ids.isNotEmpty()) {
+                    val cur = ids.indexOf(settings.fghCollectionId).coerceAtLeast(0)
+                    val next = ((cur + direction) % ids.size + ids.size) % ids.size
+                    settings.fghCollectionId = ids[next]
                 }
             }
             "show_recently_played" -> settings.showRecentlyPlayed = !settings.showRecentlyPlayed
@@ -595,7 +598,7 @@ class SettingsViewModel @Inject constructor(
         batteryDisplay = settings.batteryDisplay,
         showRecentlyPlayed = settings.showRecentlyPlayed,
         contentMode = settings.contentMode,
-        fghCollectionStem = settings.fghCollectionStem,
+        fghCollectionId = settings.fghCollectionId,
         sdRoot = settings.sdCardRoot,
         romDirectory = settings.romDirectory,
         raPackage = settings.retroArchPackage,
@@ -631,7 +634,7 @@ class SettingsViewModel @Inject constructor(
         settings.batteryDisplay = snap.batteryDisplay
         settings.showRecentlyPlayed = snap.showRecentlyPlayed
         settings.contentMode = snap.contentMode
-        settings.fghCollectionStem = snap.fghCollectionStem
+        settings.fghCollectionId = snap.fghCollectionId
         settings.sdCardRoot = snap.sdRoot
         settings.romDirectory = snap.romDirectory
         settings.retroArchPackage = snap.raPackage
@@ -644,9 +647,9 @@ class SettingsViewModel @Inject constructor(
         settings.portraitMarginPx = snap.portraitMarginPx
     }
 
-    private fun fghCollectionStems(): List<String> {
+    private fun fghCollections(): List<CollectionsRepository.CollectionRow> {
         val cr = collectionsRepository ?: return emptyList()
-        return cr.all().filter { it.type == CollectionType.STANDARD }.map { it.displayName }
+        return cr.all().filter { it.type == CollectionType.STANDARD }
     }
 
     private fun onOff(value: Boolean) = if (value) R.string.value_on else R.string.value_off
@@ -689,19 +692,19 @@ class SettingsViewModel @Inject constructor(
             }
             add(SettingsItem("content_mode", R.string.setting_content_mode, valueRes = contentModeRes))
             if (settings.contentMode == ContentMode.FIVE_GAME_HANDHELD) {
-                val stems = fghCollectionStems()
-                val curStem = settings.fghCollectionStem
-                val effective = if (curStem != null && curStem in stems) curStem else stems.firstOrNull()
-                if (effective != null && effective != curStem) {
-                    settings.fghCollectionStem = effective
+                val rows = fghCollections()
+                val curId = settings.fghCollectionId
+                val effective = rows.firstOrNull { it.id == curId } ?: rows.firstOrNull()
+                if (effective != null && effective.id != curId) {
+                    settings.fghCollectionId = effective.id
                 }
                 add(SettingsItem(
                     "fgh_collection",
                     R.string.setting_fgh_collection,
-                    valueText = effective?.let { Collection.stemToDisplayName(it) },
+                    valueText = effective?.displayName,
                     valueRes = if (effective == null) R.string.value_none else null,
-                    isEditable = stems.isNotEmpty(),
-                    canCycle = stems.isNotEmpty()
+                    isEditable = rows.isNotEmpty(),
+                    canCycle = rows.isNotEmpty()
                 ))
             }
             if (settings.contentMode != ContentMode.FIVE_GAME_HANDHELD) {
@@ -716,14 +719,14 @@ class SettingsViewModel @Inject constructor(
             add(SettingsItem("rom_directory", R.string.setting_rom_directory, valueText = romDir.ifEmpty { null }, valueRes = if (romDir.isEmpty()) R.string.value_cannoli_root else null, isEditable = true, canCycle = false))
         }
         "fgh_collection_picker" -> buildList {
-            val stems = fghCollectionStems()
-            val curStem = settings.fghCollectionStem
-            for (stem in stems) {
+            val rows = fghCollections()
+            val curId = settings.fghCollectionId
+            for (row in rows) {
                 add(SettingsItem(
-                    key = "fgh_pick:$stem",
+                    key = "fgh_pick:${row.id}",
                     labelRes = R.string.setting_fgh_collection,
-                    labelText = Collection.stemToDisplayName(stem),
-                    valueRes = if (stem == curStem) R.string.value_selected else null,
+                    labelText = row.displayName,
+                    valueRes = if (row.id == curId) R.string.value_selected else null,
                     isEditable = true,
                     canCycle = false
                 ))

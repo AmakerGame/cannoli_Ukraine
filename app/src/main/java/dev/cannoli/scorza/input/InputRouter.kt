@@ -210,7 +210,7 @@ class InputRouter @Inject constructor(
 
     private fun collectionPickerHandler() = scrollable<LauncherScreen.CollectionPicker>(
         onConfirm = {
-            if (collections.isNotEmpty()) {
+            if (collectionIds.isNotEmpty()) {
                 val newChecked = if (selectedIndex in checkedIndices) checkedIndices - selectedIndex
                                  else checkedIndices + selectedIndex
                 nav.replaceTop(copy(checkedIndices = newChecked))
@@ -222,7 +222,7 @@ class InputRouter @Inject constructor(
 
     private fun childPickerHandler() = scrollable<LauncherScreen.ChildPicker>(
         onConfirm = {
-            if (collections.isNotEmpty()) {
+            if (collectionIds.isNotEmpty()) {
                 val newChecked = if (selectedIndex in checkedIndices) checkedIndices - selectedIndex
                                  else checkedIndices + selectedIndex
                 nav.replaceTop(copy(checkedIndices = newChecked))

@@ -60,29 +60,29 @@ class LauncherActions @Inject constructor(
         onProgress: ((String, Int, Int) -> Unit)? = null,
         onComplete: (() -> Unit)? = null,
     ) {
-        val fghStem = validateFghStem()
+        val fghId = validateFghCollection()
         gameListViewModel.showFavoriteStars = settings.contentMode != ContentMode.FIVE_GAME_HANDHELD
         systemListViewModel.scan(
             showRecentlyPlayed = settings.showRecentlyPlayed,
             contentMode = settings.contentMode,
-            fghCollectionStem = fghStem,
+            fghCollectionId = fghId,
             toolsName = settings.toolsName,
             portsName = settings.portsName,
             onProgress = onProgress,
             onReady = {
                 onComplete?.invoke()
-                if (fghStem != null) scanResumableGames()
+                if (fghId != null) scanResumableGames()
             }
         )
     }
 
-    fun validateFghStem(): String? {
+    fun validateFghCollection(): Long? {
         if (settings.contentMode != ContentMode.FIVE_GAME_HANDHELD) return null
         val all = collectionsRepository.all().filter { it.type == CollectionType.STANDARD }
-        val stem = settings.fghCollectionStem
-        if (stem != null && all.any { it.displayName == stem }) return stem
-        val fallback = all.firstOrNull()?.displayName
-        settings.fghCollectionStem = fallback
+        val current = settings.fghCollectionId
+        if (current != null && all.any { it.id == current }) return current
+        val fallback = all.firstOrNull()?.id
+        settings.fghCollectionId = fallback
         return fallback
     }
 

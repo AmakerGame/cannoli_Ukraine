@@ -68,7 +68,7 @@ class SystemListInputHandler @Inject constructor(
             systemListViewModel.cancelReorder(
                 showRecentlyPlayed = settings.showRecentlyPlayed,
                 contentMode = settings.contentMode,
-                fghCollectionStem = launcherActions.validateFghStem(),
+                fghCollectionId = launcherActions.validateFghCollection(),
                 toolsName = settings.toolsName,
                 portsName = settings.portsName
             )
@@ -94,7 +94,7 @@ class SystemListInputHandler @Inject constructor(
     }
 
     override fun onNorth() {
-        val fgh = launcherActions.validateFghStem() != null
+        val fgh = launcherActions.validateFghCollection() != null
         val item = systemListViewModel.getSelectedItem()
         if (fgh && item is SystemListViewModel.ListItem.GameItem) {
             val recentKey = item.recentKey
@@ -185,7 +185,7 @@ class SystemListInputHandler @Inject constructor(
             }
             is SystemListViewModel.ListItem.FavoritesItem -> {
                 nav.navigating = true
-                gameListViewModel.loadCollection("Favorites") {
+                gameListViewModel.loadFavorites {
                     launcherActions.scanResumableGames()
                     nav.screenStack.add(LauncherScreen.GameList)
                     nav.navigating = false
@@ -208,7 +208,7 @@ class SystemListInputHandler @Inject constructor(
             }
             is SystemListViewModel.ListItem.CollectionItem -> {
                 nav.navigating = true
-                gameListViewModel.loadCollection(item.name) {
+                gameListViewModel.loadCollectionById(item.id) {
                     launcherActions.scanResumableGames()
                     nav.screenStack.add(LauncherScreen.GameList)
                     nav.navigating = false
@@ -300,8 +300,7 @@ class SystemListInputHandler @Inject constructor(
             }
             is SystemListViewModel.ListItem.CollectionItem -> {
                 ioScope.launch {
-                    val id = collectionsRepository.all().firstOrNull { it.displayName == item.name }?.id
-                    if (id != null) collectionsRepository.rename(id, newName)
+                    collectionsRepository.rename(item.id, newName)
                     launcherActions.rescanSystemList()
                 }
             }

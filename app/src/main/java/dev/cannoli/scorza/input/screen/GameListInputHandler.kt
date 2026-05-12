@@ -88,8 +88,8 @@ class GameListInputHandler @Inject constructor(
                     if (gameListViewModel.exitChildCollection { launcherActions.scanResumableGames() }) {
                         // navigated back to parent collection
                     } else if (settings.contentMode == ContentMode.PLATFORMS
-                        && glState.isCollection && glState.collectionName != null
-                        && !glState.collectionName.equals("Favorites", ignoreCase = true)) {
+                        && glState.isCollection && glState.collectionId != null
+                        && !glState.isFavorites) {
                         gameListViewModel.loadCollectionsList(restoreIndex = true)
                     } else {
                         nav.screenStack.removeAt(nav.screenStack.lastIndex)
@@ -119,7 +119,7 @@ class GameListInputHandler @Inject constructor(
                 val options = mutableListOf<String>()
                 if (glState.platformTag == "recently_played") options.add(MENU_REMOVE_FROM_RECENTS)
                 options.add(if (allFav) MENU_REMOVE_FAVORITE else MENU_ADD_FAVORITE)
-                if (glState.isCollection && glState.collectionName != null) {
+                if (glState.isCollection && glState.collectionId != null) {
                     options.add(MENU_REMOVE_FROM_COLLECTION)
                 }
                 if (isApkList) {
@@ -231,8 +231,8 @@ class GameListInputHandler @Inject constructor(
         val glState = gameListViewModel.state.value
         if (glState.isCollectionsList) {
             nav.dialogState.value = DialogState.NewCollectionInput(gamePaths = emptyList())
-        } else if (glState.isCollection && glState.collectionName != null) {
-            nav.dialogState.value = DialogState.NewCollectionInput(gamePaths = emptyList(), parentStem = glState.collectionName)
+        } else if (glState.isCollection && glState.collectionId != null) {
+            nav.dialogState.value = DialogState.NewCollectionInput(gamePaths = emptyList(), parentId = glState.collectionId)
         }
     }
 
@@ -251,7 +251,7 @@ class GameListInputHandler @Inject constructor(
         when (item) {
             is ListItem.CollectionItem -> {
                 nav.navigating = true
-                gameListViewModel.loadCollection(item.collection.displayName) {
+                gameListViewModel.loadCollectionById(item.collection.id) {
                     launcherActions.scanResumableGames()
                     nav.navigating = false
                 }
@@ -259,7 +259,7 @@ class GameListInputHandler @Inject constructor(
             }
             is ListItem.ChildCollectionItem -> {
                 nav.navigating = true
-                gameListViewModel.enterChildCollection(item.collection.displayName) {
+                gameListViewModel.enterChildCollectionById(item.collection.id) {
                     launcherActions.scanResumableGames()
                     nav.navigating = false
                 }
@@ -295,10 +295,10 @@ class GameListInputHandler @Inject constructor(
             when {
                 gs.platformTag == "recently_played" -> item is SystemListViewModel.ListItem.RecentlyPlayedItem
                 gs.isCollectionsList -> item is SystemListViewModel.ListItem.CollectionsFolder
-                gs.isCollection && gs.collectionName.equals("Favorites", ignoreCase = true) -> item is SystemListViewModel.ListItem.FavoritesItem
-                gs.isCollection && gs.collectionName != null -> {
+                gs.isCollection && gs.isFavorites -> item is SystemListViewModel.ListItem.FavoritesItem
+                gs.isCollection && gs.collectionId != null -> {
                     (item is SystemListViewModel.ListItem.CollectionsFolder) ||
-                    (item is SystemListViewModel.ListItem.CollectionItem && item.name == gs.collectionName)
+                    (item is SystemListViewModel.ListItem.CollectionItem && item.id == gs.collectionId)
                 }
                 gs.platformTag == "tools" -> item is SystemListViewModel.ListItem.ToolsFolder
                 gs.platformTag == "ports" -> item is SystemListViewModel.ListItem.PortsFolder
@@ -318,7 +318,7 @@ class GameListInputHandler @Inject constructor(
                 }
             }
             is SystemListViewModel.ListItem.FavoritesItem -> {
-                gameListViewModel.loadCollection("Favorites") {
+                gameListViewModel.loadFavorites {
                     launcherActions.scanResumableGames()
                     nav.navigating = false
                 }
@@ -335,7 +335,7 @@ class GameListInputHandler @Inject constructor(
                 }
             }
             is SystemListViewModel.ListItem.CollectionItem -> {
-                gameListViewModel.loadCollection(target.name) {
+                gameListViewModel.loadCollectionById(target.id) {
                     launcherActions.scanResumableGames()
                     nav.navigating = false
                 }

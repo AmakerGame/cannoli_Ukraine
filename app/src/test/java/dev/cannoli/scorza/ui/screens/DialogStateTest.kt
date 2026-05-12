@@ -123,7 +123,7 @@ class DialogStateTest {
         val newCol = DialogState.NewCollectionInput(currentName = "abc")
         assertEquals(2, (newCol.withCursor(2) as DialogState.NewCollectionInput).cursorPos)
 
-        val collRename = DialogState.CollectionRenameInput(oldStem = "old", currentName = "abc")
+        val collRename = DialogState.CollectionRenameInput(collectionId = 1L, oldDisplayName = "old", currentName = "abc")
         assertEquals(2, (collRename.withCursor(2) as DialogState.CollectionRenameInput).cursorPos)
 
         val newFolder = DialogState.NewFolderInput(parentPath = "/", currentName = "abc")
