@@ -2,6 +2,7 @@ package dev.cannoli.scorza.util
 
 import android.content.res.AssetManager
 import dev.cannoli.scorza.config.CannoliPaths
+import dev.cannoli.scorza.di.CannoliPathsProvider
 import java.io.File
 
 /**
@@ -10,15 +11,19 @@ import java.io.File
  * disc grouping, name-map overrides, and tag/region splitting.
  */
 class RomDirectoryWalker(
-    private val cannoliRoot: File,
-    private val romDirectory: File,
+    private val pathsProvider: CannoliPathsProvider,
+    private val assets: AssetManager,
     private val arcadeTitleLookup: ArcadeTitleLookup,
 ) {
+    private val cannoliRoot: File get() = pathsProvider.root
+    private val romDirectory: File get() = pathsProvider.romDir
+
     private val discRegex = Regex("""\s*\((Disc|Disk)\s*\d+\)|\s*\(CD\d+\)""", RegexOption.IGNORE_CASE)
     private val tagRegex = Regex("""\s*(\([^)]*\)|\[[^\]]*\])""")
 
     @Volatile private var ignoredExtensions: Set<String> = emptySet()
     @Volatile private var ignoredFiles: Set<String> = emptySet()
+    @Volatile private var ignoreListsLoaded = false
 
     data class ScannedRom(
         val relativePath: String,
@@ -27,16 +32,19 @@ class RomDirectoryWalker(
         val discPaths: List<String>?,
     )
 
-    fun loadIgnoreLists(assets: AssetManager) {
+    private fun ensureIgnoreLists() {
+        if (ignoreListsLoaded) return
         val paths = CannoliPaths(cannoliRoot)
         seedFromAsset(assets, "ignore_extensions_roms.txt", paths.ignoreExtensionsRoms)
         seedFromAsset(assets, "ignore_files_roms.txt", paths.ignoreFilesRoms)
         ignoredExtensions = readSetLowercase(paths.ignoreExtensionsRoms) { it.removePrefix(".") }
         ignoredFiles = readSetLowercase(paths.ignoreFilesRoms) { it }
+        ignoreListsLoaded = true
     }
 
     /** Returns null when the platform directory does not exist. */
     fun walk(platformTag: String, isArcade: Boolean): WalkResult? {
+        ensureIgnoreLists()
         val tag = platformTag.uppercase()
         val tagDir = resolveTagDir(tag) ?: return null
         val out = mutableListOf<ScannedRom>()

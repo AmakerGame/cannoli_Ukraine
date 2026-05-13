@@ -12,52 +12,32 @@ import dev.cannoli.scorza.db.CollectionsRepository
 import dev.cannoli.scorza.db.RecentlyPlayedRepository
 import dev.cannoli.scorza.db.RomScanner
 import dev.cannoli.scorza.db.RomsRepository
-import dev.cannoli.scorza.settings.SettingsRepository
 import dev.cannoli.scorza.util.ArcadeTitleLookup
 import dev.cannoli.scorza.util.ArtworkLookup
 import dev.cannoli.scorza.util.RomDirectoryWalker
-import java.io.File
 import javax.inject.Singleton
 
 @Module
 @InstallIn(SingletonComponent::class)
 object DatabaseModule {
-    @Provides @Singleton @CannoliRoot
-    fun provideCannoliRoot(settings: SettingsRepository): File =
-        File(settings.sdCardRoot)
-
-    @Provides @Singleton @RomDir
-    fun provideRomDir(
-        @CannoliRoot root: File,
-        settings: SettingsRepository,
-    ): File {
-        val customPath = settings.romDirectory.takeIf { it.isNotEmpty() }
-        return customPath?.let { File(it) } ?: File(root, "Roms")
-    }
+    @Provides @Singleton
+    fun provideCannoliDatabase(paths: CannoliPathsProvider): CannoliDatabase =
+        CannoliDatabase(paths)
 
     @Provides @Singleton
-    fun provideCannoliDatabase(@CannoliRoot cannoliRoot: File): CannoliDatabase =
-        CannoliDatabase(cannoliRoot)
+    fun provideArtworkLookup(paths: CannoliPathsProvider): ArtworkLookup =
+        ArtworkLookup(paths)
 
     @Provides @Singleton
-    fun provideArtworkLookup(@CannoliRoot cannoliRoot: File): ArtworkLookup =
-        ArtworkLookup(cannoliRoot)
-
-    @Provides @Singleton
-    fun provideArcadeTitleLookup(@CannoliRoot cannoliRoot: File): ArcadeTitleLookup =
-        ArcadeTitleLookup(cannoliRoot)
+    fun provideArcadeTitleLookup(paths: CannoliPathsProvider): ArcadeTitleLookup =
+        ArcadeTitleLookup(paths)
 
     @Provides @Singleton
     fun provideRomDirectoryWalker(
-        @CannoliRoot cannoliRoot: File,
-        @RomDir romDirectory: File,
+        paths: CannoliPathsProvider,
         arcadeTitleLookup: ArcadeTitleLookup,
         @ApplicationContext context: Context,
-    ): RomDirectoryWalker {
-        val walker = RomDirectoryWalker(cannoliRoot, romDirectory, arcadeTitleLookup)
-        walker.loadIgnoreLists(context.assets)
-        return walker
-    }
+    ): RomDirectoryWalker = RomDirectoryWalker(paths, context.assets, arcadeTitleLookup)
 
     @Provides @Singleton
     fun provideRomScanner(
@@ -68,10 +48,10 @@ object DatabaseModule {
 
     @Provides @Singleton
     fun provideRomsRepository(
-        @RomDir romDirectory: File,
+        paths: CannoliPathsProvider,
         db: CannoliDatabase,
         artwork: ArtworkLookup,
-    ): RomsRepository = RomsRepository(romDirectory, db, artwork)
+    ): RomsRepository = RomsRepository(paths, db, artwork)
 
     @Provides @Singleton
     fun provideAppsRepository(db: CannoliDatabase): AppsRepository =

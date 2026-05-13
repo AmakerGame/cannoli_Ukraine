@@ -1,12 +1,13 @@
 package dev.cannoli.scorza.util
 
 import dev.cannoli.scorza.config.CannoliPaths
+import dev.cannoli.scorza.di.CannoliPathsProvider
 import java.io.File
 import java.io.IOException
 import java.util.concurrent.ConcurrentHashMap
 
-class ArcadeTitleLookup(cannoliRoot: File) {
-    private val arcadeMapFile = CannoliPaths(cannoliRoot).arcadeMapFile
+class ArcadeTitleLookup(private val pathsProvider: CannoliPathsProvider) {
+    private val arcadeMapFile: File get() = CannoliPaths(pathsProvider.root).arcadeMapFile
     private val cache = ConcurrentHashMap<String, Map<String, String>>()
     @Volatile private var arcadeCache: Map<String, String>? = null
 

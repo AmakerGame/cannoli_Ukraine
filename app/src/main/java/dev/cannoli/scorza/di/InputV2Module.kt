@@ -32,8 +32,8 @@ object InputV2Module {
 
     @Provides
     @Singleton
-    fun provideMappingRepository(@CannoliRoot root: File): MappingRepository =
-        MappingRepository(CannoliPaths(root).configInputMappings)
+    fun provideMappingRepository(paths: CannoliPathsProvider): MappingRepository =
+        MappingRepository { CannoliPaths(paths.root).configInputMappings }
 
     @Provides
     @Singleton
@@ -48,13 +48,13 @@ object InputV2Module {
     fun provideMappingResolver(
         repository: MappingRepository,
         @BundledRetroArchAutoconfig bundled: List<RetroArchCfgEntry>,
-        @CannoliRoot root: File,
+        paths: CannoliPathsProvider,
         hints: dev.cannoli.scorza.input.v2.hints.ControllerHintTable,
     ): MappingResolver = MappingResolver(
         repository = repository,
         bundledRetroArchEntries = bundled,
         hints = hints,
-        mappingsDir = CannoliPaths(root).configInputMappings,
+        mappingsDir = CannoliPaths(paths.root).configInputMappings,
     )
 
     @Provides

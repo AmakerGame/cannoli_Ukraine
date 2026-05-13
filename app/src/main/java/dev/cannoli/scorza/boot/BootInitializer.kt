@@ -13,8 +13,8 @@ import dev.cannoli.scorza.db.RomsRepository
 import dev.cannoli.scorza.db.importer.ImportProgress
 import dev.cannoli.scorza.db.importer.ImportResult
 import dev.cannoli.scorza.db.importer.Importer
+import dev.cannoli.scorza.di.CannoliPathsProvider
 import dev.cannoli.scorza.di.IoScope
-import dev.cannoli.scorza.di.RomDir
 import dev.cannoli.scorza.input.BindingController
 import dev.cannoli.scorza.input.LauncherActions
 import dev.cannoli.scorza.launcher.InstalledCoreService
@@ -48,7 +48,7 @@ class BootInitializer @Inject constructor(
     private val platformConfig: PlatformConfig,
     private val cannoliDatabase: CannoliDatabase,
     private val romScanner: RomScanner,
-    @RomDir private val romDir: File,
+    private val cannoliPaths: CannoliPathsProvider,
     @IoScope private val ioScope: CoroutineScope,
     private val installedCoreService: InstalledCoreService,
     private val gameListViewModel: GameListViewModel,
@@ -65,7 +65,8 @@ class BootInitializer @Inject constructor(
     suspend fun run(onPhase: (BootPhase, Float, String) -> Unit): BootResult {
         onPhase(BootPhase.IMPORT, 0f, "Preparing")
 
-        val root = File(settings.sdCardRoot)
+        val root = cannoliPaths.root
+        val romDir = cannoliPaths.romDir
 
         ScanLog.init(root.absolutePath)
         dev.cannoli.scorza.util.InputLog.init(root.absolutePath)

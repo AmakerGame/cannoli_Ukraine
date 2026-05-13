@@ -16,11 +16,18 @@ import java.io.File
 data class GameCoreOverride(val coreId: String = "", val runner: String? = null, val appPackage: String? = null, val raPackage: String? = null)
 
 class PlatformConfig(
-    private val cannoliRoot: File,
+    private val cannoliRootProvider: () -> File,
     private val assets: AssetManager,
     private val coreInfo: CoreInfoRepository? = null,
     private val nativeLibDir: String? = null
 ) {
+
+    constructor(
+        cannoliRoot: File,
+        assets: AssetManager,
+        coreInfo: CoreInfoRepository? = null,
+        nativeLibDir: String? = null,
+    ) : this({ cannoliRoot }, assets, coreInfo, nativeLibDir)
 
     private var defaultCores = mapOf<String, String>()
     private var defaultPlatformNames = mapOf<String, String>()
@@ -75,7 +82,7 @@ class PlatformConfig(
     private var userApps: MutableMap<String, String> = java.util.concurrent.ConcurrentHashMap()
     private var userPackages: MutableMap<String, String> = java.util.concurrent.ConcurrentHashMap()
     private var gameOverrides: MutableMap<String, GameCoreOverride> = java.util.concurrent.ConcurrentHashMap()
-    private val paths = CannoliPaths(cannoliRoot)
+    private val paths: CannoliPaths get() = CannoliPaths(cannoliRootProvider())
     private val coresFile get() = paths.coresJson
 
     private fun romsTagDir(tag: String, romsDir: File = paths.romsDir): File {

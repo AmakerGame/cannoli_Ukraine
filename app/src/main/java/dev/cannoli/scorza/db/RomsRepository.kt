@@ -4,15 +4,18 @@ import androidx.sqlite.SQLiteStatement
 import dev.cannoli.scorza.model.LaunchTarget
 import dev.cannoli.scorza.model.ListItem
 import dev.cannoli.scorza.model.Rom
+import dev.cannoli.scorza.di.CannoliPathsProvider
 import dev.cannoli.scorza.util.ArtworkLookup
 import org.json.JSONArray
 import java.io.File
 
 class RomsRepository(
-    private val romDirectory: File,
+    private val pathsProvider: CannoliPathsProvider,
     private val db: CannoliDatabase,
     private val artwork: ArtworkLookup,
 ) {
+    private val romDirectory: File get() = pathsProvider.romDir
+
     fun gamesForPlatform(platformTag: String, subfolder: String? = null): List<ListItem> {
         val tag = platformTag.uppercase()
         val roms = romsForPlatform(tag)

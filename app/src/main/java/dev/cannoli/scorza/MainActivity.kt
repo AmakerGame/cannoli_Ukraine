@@ -38,7 +38,6 @@ import dev.cannoli.scorza.db.CollectionsRepository
 import dev.cannoli.scorza.db.RomScanner
 import dev.cannoli.scorza.db.RomsRepository
 import dev.cannoli.scorza.di.AppFonts
-import dev.cannoli.scorza.di.RomDir
 import dev.cannoli.scorza.input.ActivityActions
 import dev.cannoli.scorza.input.BindingController
 import dev.cannoli.scorza.input.AndroidGamepadKeyNames
@@ -100,7 +99,6 @@ class MainActivity : ComponentActivity(), ActivityActions {
     @Inject lateinit var controllersViewModel: Provider<dev.cannoli.scorza.ui.viewmodel.ControllersViewModel>
     @Inject lateinit var editButtonsController: dev.cannoli.scorza.input.EditButtonsController
     @Inject lateinit var mappingRepository: Provider<dev.cannoli.scorza.input.v2.repo.MappingRepository>
-    @Inject @RomDir lateinit var romDir: Provider<File>
     @Inject lateinit var bootSequencer: BootSequencer
     @Inject lateinit var startStorageDependentHolder: StartStorageDependentHolder
     @Inject lateinit var appFonts: AppFonts

@@ -4,7 +4,11 @@ import dev.cannoli.scorza.input.v2.DeviceMapping
 import java.io.File
 import java.io.IOException
 
-class MappingRepository(private val mappingsDir: File) {
+class MappingRepository(private val mappingsDirProvider: () -> File) {
+
+    constructor(mappingsDir: File) : this({ mappingsDir })
+
+    private val mappingsDir: File get() = mappingsDirProvider()
 
     fun list(): List<DeviceMapping> {
         if (!mappingsDir.exists()) return emptyList()

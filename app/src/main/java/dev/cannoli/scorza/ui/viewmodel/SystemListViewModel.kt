@@ -7,7 +7,7 @@ import dev.cannoli.scorza.db.CollectionsRepository
 import dev.cannoli.scorza.db.RecentlyPlayedRepository
 import dev.cannoli.scorza.db.RomScanner
 import dev.cannoli.scorza.db.RomsRepository
-import dev.cannoli.scorza.di.RomDir
+import dev.cannoli.scorza.di.CannoliPathsProvider
 import dev.cannoli.scorza.model.AppType
 import dev.cannoli.scorza.model.Platform
 import dev.cannoli.scorza.settings.ContentMode
@@ -31,8 +31,9 @@ class SystemListViewModel @Inject constructor(
     private val collectionsRepository: CollectionsRepository,
     private val recentlyPlayedRepository: RecentlyPlayedRepository,
     private val platformConfig: PlatformConfig,
-    @RomDir private val romDirectory: File,
+    private val cannoliPaths: CannoliPathsProvider,
 ) {
+    private val romDirectory: File get() = cannoliPaths.romDir
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
 
     sealed class ListItem {

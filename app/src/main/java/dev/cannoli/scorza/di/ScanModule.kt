@@ -9,7 +9,6 @@ import dagger.hilt.components.SingletonComponent
 import dev.cannoli.scorza.config.CoreInfoRepository
 import dev.cannoli.scorza.config.PlatformConfig
 import dev.cannoli.scorza.launcher.LaunchManager
-import dev.cannoli.scorza.settings.SettingsRepository
 import java.io.File
 import javax.inject.Singleton
 
@@ -30,12 +29,11 @@ object ScanModule {
 
     @Provides @Singleton
     fun providePlatformConfig(
-        settings: SettingsRepository,
+        paths: CannoliPathsProvider,
         @ApplicationContext context: Context,
         coreInfo: CoreInfoRepository,
     ): PlatformConfig {
-        val root = File(settings.sdCardRoot)
         val bundledCoresDir = LaunchManager.extractBundledCores(context)
-        return PlatformConfig(root, context.assets, coreInfo, bundledCoresDir)
+        return PlatformConfig({ paths.root }, context.assets, coreInfo, bundledCoresDir)
     }
 }

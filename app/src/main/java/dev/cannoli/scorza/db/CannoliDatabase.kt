@@ -4,19 +4,20 @@ import androidx.sqlite.SQLiteConnection
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import androidx.sqlite.execSQL
 import dev.cannoli.scorza.config.CannoliPaths
+import dev.cannoli.scorza.di.CannoliPathsProvider
 import dev.cannoli.scorza.util.ScanLog
 import java.io.File
 
-class CannoliDatabase(cannoliRoot: File) {
-    private val dbPath: String = CannoliPaths(cannoliRoot).database.absolutePath
-    private val dbDir: File? = CannoliPaths(cannoliRoot).database.parentFile
+class CannoliDatabase(private val pathsProvider: CannoliPathsProvider) {
+    private val databaseFile: File get() = CannoliPaths(pathsProvider.root).database
 
     // Open on first access. Hilt eagerly resolves @Singleton injects at MainActivity onCreate,
     // which is before the user clears the permission gate, so deferring the SQLite open keeps
-    // construction free of file I/O.
+    // construction free of file I/O (and lets the SD-card root resolved by setup win).
     val conn: SQLiteConnection by lazy {
-        dbDir?.mkdirs()
-        val c = BundledSQLiteDriver().open(dbPath)
+        val dbFile = databaseFile
+        dbFile.parentFile?.mkdirs()
+        val c = BundledSQLiteDriver().open(dbFile.absolutePath)
         c.execSQL("PRAGMA foreign_keys = ON")
         c.execSQL("PRAGMA journal_mode = WAL")
         runMigrations(c)
