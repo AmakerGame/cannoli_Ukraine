@@ -57,7 +57,6 @@ import dev.cannoli.scorza.settings.SettingsRepository
 import dev.cannoli.scorza.setup.SetupCoordinator
 import dev.cannoli.scorza.ui.screens.BootErrorScreen
 import dev.cannoli.scorza.ui.screens.DialogState
-import dev.cannoli.scorza.ui.screens.PermissionScreen
 import dev.cannoli.scorza.ui.viewmodel.GameListViewModel
 import dev.cannoli.scorza.ui.viewmodel.InputTesterViewModel
 import dev.cannoli.scorza.ui.viewmodel.SettingsViewModel
@@ -117,28 +116,23 @@ class MainActivity : ComponentActivity(), ActivityActions {
             if (loginManager != null) loginPollHandler.postDelayed(this, 100)
         }
     }
-    private var pendingStoragePrompt = false
-    private var pendingBtPrompt = false
     private var coldStart = true
 
     private val storagePermissionLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) {
-        pendingStoragePrompt = false
         bootSequencer.onStoragePermissionResult()
     }
 
     private val legacyPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) {
-        pendingStoragePrompt = false
         bootSequencer.onStoragePermissionResult()
     }
 
     private val bluetoothPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
-        pendingBtPrompt = false
         dev.cannoli.scorza.util.InputLog.write("BLUETOOTH_CONNECT permission ${if (granted) "granted" else "denied"}")
         if (granted) controllerV2Bridge.settleNow()
         bootSequencer.onBluetoothPermissionResult(granted)
@@ -168,6 +162,14 @@ class MainActivity : ComponentActivity(), ActivityActions {
         startStorageDependentHolder.register { startStorageDependent() }
         onboardingHandler.onStartInstalling = { targetPath -> startInstalling(targetPath) }
         onboardingHandler.onInstallFinished = { bootSequencer.onInstallFinished() }
+        onboardingHandler.onRequestPermission = { perm ->
+            when (perm) {
+                dev.cannoli.scorza.navigation.OnboardingPermission.STORAGE -> requestStoragePermission()
+                dev.cannoli.scorza.navigation.OnboardingPermission.BLUETOOTH ->
+                    bluetoothPermissionLauncher.launch(Manifest.permission.BLUETOOTH_CONNECT)
+            }
+        }
+        onboardingHandler.onContinue = { bootSequencer.advance() }
         router.unregisterCoreQueryReceiver = { unregisterCoreQueryReceiver() }
         router.wire(inputDispatcher)
 
@@ -180,19 +182,6 @@ class MainActivity : ComponentActivity(), ActivityActions {
         setContent {
             val boot by bootSequencer.state.collectAsState()
 
-            LaunchedEffect(boot) {
-                val s = boot
-                if (s is BootState.NeedsPermission) {
-                    if (!s.storageGranted && !pendingStoragePrompt) {
-                        pendingStoragePrompt = true
-                        requestStoragePermission()
-                    } else if (s.storageGranted && !s.bluetoothGranted && !pendingBtPrompt && Build.VERSION.SDK_INT >= 31) {
-                        pendingBtPrompt = true
-                        bluetoothPermissionLauncher.launch(Manifest.permission.BLUETOOTH_CONNECT)
-                    }
-                }
-            }
-
             val themeFont = if (boot is BootState.Ready) {
                 settingsViewModel.get().appSettings.collectAsState().value.fontFamily
             } else {
@@ -202,10 +191,26 @@ class MainActivity : ComponentActivity(), ActivityActions {
                 Surface(modifier = Modifier.fillMaxSize()) {
                     when (val s = boot) {
                         is BootState.Resolving -> Box(modifier = Modifier.fillMaxSize()) {}
-                        is BootState.NeedsPermission -> PermissionScreen(
-                            storageGranted = s.storageGranted,
-                            bluetoothGranted = s.bluetoothGranted,
-                        )
+                        is BootState.NeedsPermission -> {
+                            LaunchedEffect(s.storageGranted, s.bluetoothGranted) {
+                                val perms = buildList {
+                                    add(dev.cannoli.scorza.navigation.OnboardingPermission.STORAGE)
+                                    if (Build.VERSION.SDK_INT >= 31) add(dev.cannoli.scorza.navigation.OnboardingPermission.BLUETOOTH)
+                                }
+                                val granted = buildSet {
+                                    if (s.storageGranted) add(dev.cannoli.scorza.navigation.OnboardingPermission.STORAGE)
+                                    if (s.bluetoothGranted) add(dev.cannoli.scorza.navigation.OnboardingPermission.BLUETOOTH)
+                                }
+                                val top = nav.currentScreen
+                                if (top is LauncherScreen.OnboardingPermissions) {
+                                    nav.replaceTop(top.copy(permissions = perms, granted = granted))
+                                } else {
+                                    nav.screenStack.clear()
+                                    nav.screenStack.add(LauncherScreen.OnboardingPermissions(perms, granted))
+                                }
+                            }
+                            ReadyNavGraph()
+                        }
                         is BootState.NeedsSetup -> {
                             LaunchedEffect(s.volumes) {
                                 val top = nav.currentScreen
@@ -410,9 +415,10 @@ class MainActivity : ComponentActivity(), ActivityActions {
                 && AndroidGamepadKeyNames.isGamepadEvent(event)) {
                 bootSequencer.retry()
             }
-            // While in NeedsSetup the launcher screen stack drives Setup/Installing via
-            // the normal input pipeline, so fall through; everything else is swallowed.
-            if (bootSequencer.state.value !is BootState.NeedsSetup) return true
+            // While in NeedsSetup or NeedsPermission the launcher screen stack drives the wizard
+            // via the normal input pipeline, so fall through; everything else is swallowed.
+            val bootVal = bootSequencer.state.value
+            if (bootVal !is BootState.NeedsSetup && bootVal !is BootState.NeedsPermission) return true
         }
         val cs = nav.currentScreen
         if (cs is LauncherScreen.EditButtons && editButtonsController.isListening
@@ -437,8 +443,9 @@ class MainActivity : ComponentActivity(), ActivityActions {
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
-        if (!isReady && bootSequencer.state.value !is BootState.NeedsSetup) {
-            if (bootSequencer.state.value is BootState.Error && AndroidGamepadKeyNames.isGamepadEvent(event)) {
+        val bootValOnKeyDown = bootSequencer.state.value
+        if (!isReady && bootValOnKeyDown !is BootState.NeedsSetup && bootValOnKeyDown !is BootState.NeedsPermission) {
+            if (bootValOnKeyDown is BootState.Error && AndroidGamepadKeyNames.isGamepadEvent(event)) {
                 bootSequencer.retry()
             }
             return true
@@ -469,7 +476,8 @@ class MainActivity : ComponentActivity(), ActivityActions {
     }
 
     override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
-        if (!isReady && bootSequencer.state.value !is BootState.NeedsSetup) return true
+        val bootValOnKeyUp = bootSequencer.state.value
+        if (!isReady && bootValOnKeyUp !is BootState.NeedsSetup && bootValOnKeyUp !is BootState.NeedsPermission) return true
         val currentScreenForKey = nav.currentScreen
         if (currentScreenForKey is LauncherScreen.InputTester) {
             inputTesterController.dispatchKey(event, down = false)
@@ -485,7 +493,8 @@ class MainActivity : ComponentActivity(), ActivityActions {
     }
 
     override fun onGenericMotionEvent(event: MotionEvent): Boolean {
-        if (!isReady && bootSequencer.state.value !is BootState.NeedsSetup) return super.onGenericMotionEvent(event)
+        val bootValOnMotion = bootSequencer.state.value
+        if (!isReady && bootValOnMotion !is BootState.NeedsSetup && bootValOnMotion !is BootState.NeedsPermission) return super.onGenericMotionEvent(event)
         val currentScreenForMotion = nav.currentScreen
         if (currentScreenForMotion is LauncherScreen.InputTester) {
             inputTesterController.dispatchMotion(event)

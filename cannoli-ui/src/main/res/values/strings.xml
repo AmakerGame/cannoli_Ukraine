@@ -274,13 +274,6 @@
     <string name="selected_count">%1$d Selected</string>
     <string name="battery_level">%1$d%%</string>
 
-    <!-- Permission screen -->
-    <string name="permission_title">Permissions Required</string>
-    <string name="permission_description">Cannoli needs permission to read your games and pair controllers.</string>
-    <string name="permission_grant">Waiting for system permission dialogs</string>
-    <string name="permission_storage_label">All files access</string>
-    <string name="permission_bluetooth_label">Nearby devices (Bluetooth)</string>
-
     <!-- Onboarding permissions step -->
     <string name="onboarding_header">SET UP CANNOLI</string>
     <string name="onboarding_permissions_title">Permissions</string>
