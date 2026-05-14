@@ -18,7 +18,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 
-private val cache = java.util.concurrent.atomic.AtomicReference<Pair<String, ImageBitmap>?>(null)
+private data class BgCacheEntry(val path: String, val lastModified: Long, val bitmap: ImageBitmap)
+private val cache = java.util.concurrent.atomic.AtomicReference<BgCacheEntry?>(null)
 
 @Composable
 fun ScreenBackground(
@@ -34,23 +35,26 @@ fun ScreenBackground(
         Box(modifier = Modifier.fillMaxSize().background(resolvedColor.copy(alpha = backgroundAlpha)))
 
         if (backgroundImagePath != null) {
+            val lastModified = File(backgroundImagePath).lastModified()
+            val cachedInitial = cache.get()?.takeIf {
+                it.path == backgroundImagePath && it.lastModified == lastModified
+            }?.bitmap
             val bitmap by produceState(
-                initialValue = cache.get()?.takeIf { it.first == backgroundImagePath }?.second,
-                backgroundImagePath
+                initialValue = cachedInitial,
+                backgroundImagePath, lastModified
             ) {
-                val cached = cache.get()
-                if (cached != null && cached.first == backgroundImagePath) {
-                    value = cached.second
-                    return@produceState
-                }
                 value = withContext(Dispatchers.IO) {
                     try {
                         val file = File(backgroundImagePath)
-                        if (file.exists()) {
-                            BitmapFactory.decodeFile(file.absolutePath)?.asImageBitmap()?.also {
-                                cache.set(backgroundImagePath to it)
-                            }
-                        } else null
+                        if (!file.exists()) return@withContext null
+                        val mtime = file.lastModified()
+                        val existing = cache.get()
+                        if (existing != null && existing.path == backgroundImagePath && existing.lastModified == mtime) {
+                            return@withContext existing.bitmap
+                        }
+                        BitmapFactory.decodeFile(file.absolutePath)?.asImageBitmap()?.also {
+                            cache.set(BgCacheEntry(backgroundImagePath, mtime, it))
+                        }
                     } catch (_: Exception) {
                         null
                     }
