@@ -84,8 +84,19 @@ class RomsRepository(
         val matched = if (basePrefix.isEmpty()) roms
         else roms.filter { it.relativeAfterPlatform().startsWith(basePrefix) }
         return matched.partition { rom ->
-            !rom.relativeAfterPlatform().removePrefix(basePrefix).contains(sep)
+            val remaining = rom.relativeAfterPlatform().removePrefix(basePrefix)
+            !remaining.contains(sep) || isSelfContainedBundle(remaining, sep)
         }
+    }
+
+    /** A rom whose remaining path is `<folder>/<folder>.m3u` is a self-contained multi-disc
+     *  bundle (organizer-created). Show it at the current level, not behind a subfolder row. */
+    private fun isSelfContainedBundle(remaining: String, sep: Char): Boolean {
+        val sepIndex = remaining.indexOf(sep)
+        if (sepIndex < 0 || remaining.indexOf(sep, sepIndex + 1) >= 0) return false
+        val folder = remaining.substring(0, sepIndex)
+        val file = remaining.substring(sepIndex + 1)
+        return file == "$folder.m3u"
     }
 
     private fun subfolderItemsFrom(roms: List<Rom>, subfolder: String?): List<ListItem.SubfolderItem> {
