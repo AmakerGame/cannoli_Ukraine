@@ -23,8 +23,9 @@ class RomScanner(
         val result = walker.walk(tag, isArcade) ?: return clearPlatform(tag).also {
             ScanLog.write("scanPlatform $tag: no rom dir, cleared ${it.removed}")
         }
+        applyRekeys(tag, result.rekeys)
         val storedMtime = readLastScannedMtime(tag)
-        if (storedMtime != MTIME_UNSET && storedMtime == result.mtime) {
+        if (result.rekeys.isEmpty() && storedMtime != MTIME_UNSET && storedMtime == result.mtime) {
             return SyncCounts(0, 0, 0)
         }
         artwork.invalidate(tag)
@@ -33,6 +34,21 @@ class RomScanner(
         writeLastScannedMtime(tag, result.mtime)
         ScanLog.write("scanPlatform $tag: +${counts.inserted} -${counts.removed} ~${counts.updated}")
         return counts
+    }
+
+    private fun applyRekeys(tag: String, rekeys: List<RomDirectoryWalker.RekeyMove>) {
+        if (rekeys.isEmpty()) return
+        db.transaction { conn ->
+            conn.prepare("UPDATE roms SET path = ? WHERE platform_tag = ? AND path = ?").use { stmt ->
+                for (move in rekeys) {
+                    stmt.reset()
+                    stmt.bindText(1, move.newRelPath)
+                    stmt.bindText(2, tag)
+                    stmt.bindText(3, move.oldRelPath)
+                    stmt.step()
+                }
+            }
+        }
     }
 
     fun invalidatePlatform(platformTag: String) {

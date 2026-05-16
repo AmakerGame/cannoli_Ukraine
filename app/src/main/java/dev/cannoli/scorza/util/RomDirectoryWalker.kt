@@ -7,7 +7,8 @@ import java.io.File
 
 /**
  * Walks a ROM directory and returns the in-memory list of ROMs that should exist for a platform.
- * Pure: no DB, no caching beyond what the lookups inject. Honors ignore lists, m3u/cue dir launches,
+ * Reorganizes loose multi-disc sets into per-game subfolders with a generated `<base>.m3u` so
+ * libretro cores resolve disc paths correctly. Honors ignore lists, m3u/cue dir launches,
  * disc grouping, name-map overrides, and tag/region splitting.
  */
 class RomDirectoryWalker(
@@ -20,6 +21,7 @@ class RomDirectoryWalker(
 
     private val discRegex = Regex("""\s*\((Disc|Disk)\s*\d+\)|\s*\(CD\d+\)""", RegexOption.IGNORE_CASE)
     private val tagRegex = Regex("""\s*(\([^)]*\)|\[[^\]]*\])""")
+    private val cueFileLineRegex = Regex("""^\s*FILE\s+(?:"([^"]+)"|(\S+))\s+\w+\s*$""", RegexOption.IGNORE_CASE)
 
     @Volatile private var ignoredExtensions: Set<String> = emptySet()
     @Volatile private var ignoredFiles: Set<String> = emptySet()
@@ -31,6 +33,10 @@ class RomDirectoryWalker(
         val tags: String?,
         val discPaths: List<String>?,
     )
+
+    /** A multi-disc set that the organizer relocated; `oldRelPath` is what the DB previously
+     *  referenced (the first disc's path), `newRelPath` is the generated m3u. */
+    data class RekeyMove(val oldRelPath: String, val newRelPath: String)
 
     private fun ensureIgnoreLists() {
         if (ignoreListsLoaded) return
@@ -47,9 +53,11 @@ class RomDirectoryWalker(
         ensureIgnoreLists()
         val tag = platformTag.uppercase()
         val tagDir = resolveTagDir(tag) ?: return null
+        val rekeys = mutableListOf<RekeyMove>()
+        organizeDir(tagDir, "$tag${File.separator}", tag, rekeys, depth = 0)
         val out = mutableListOf<ScannedRom>()
         scanDir(tagDir, "$tag${File.separator}", isArcade, out, depth = 0)
-        return WalkResult(tagDir = tagDir, mtime = computeTreeMtime(tagDir), roms = out)
+        return WalkResult(tagDir = tagDir, mtime = computeTreeMtime(tagDir), roms = out, rekeys = rekeys)
     }
 
     fun computeTreeMtime(dir: File): Long {
@@ -73,7 +81,12 @@ class RomDirectoryWalker(
 
     fun invalidateNameMap(tagDir: File) = arcadeTitleLookup.invalidate(tagDir)
 
-    data class WalkResult(val tagDir: File, val mtime: Long, val roms: List<ScannedRom>)
+    data class WalkResult(
+        val tagDir: File,
+        val mtime: Long,
+        val roms: List<ScannedRom>,
+        val rekeys: List<RekeyMove> = emptyList(),
+    )
 
     private data class DirLaunch(val file: File, val discFiles: List<File>?)
     private data class PendingRom(val relativePath: String, val rawName: String, val sourceFileName: String, val discPaths: List<String>?)
@@ -153,6 +166,155 @@ class RomDirectoryWalker(
             return DirLaunch(sorted.first(), sorted)
         }
         return null
+    }
+
+    private fun organizeDir(
+        dir: File,
+        relPrefix: String,
+        tag: String,
+        moves: MutableList<RekeyMove>,
+        depth: Int,
+    ) {
+        if (depth > MAX_DEPTH) return
+        val entries = dir.listFiles()?.filter { !it.name.startsWith(".") && !isIgnored(it) } ?: return
+        val (subdirs, files) = entries.partition { it.isDirectory }
+
+        for (subdir in subdirs) {
+            organizeDir(subdir, "$relPrefix${subdir.name}${File.separator}", tag, moves, depth + 1)
+        }
+
+        val romFiles = files.filterNot { isIgnoredExtension(it) }
+        val discCandidates = romFiles.filter { discRegex.containsMatchIn(it.nameWithoutExtension) }
+        if (discCandidates.isEmpty()) return
+        val discGroups = discCandidates.groupBy { discRegex.replace(it.nameWithoutExtension, "").trim() }
+        val m3uByBase = romFiles.filter { it.extension.equals("m3u", ignoreCase = true) }
+            .associateBy { it.nameWithoutExtension }
+
+        for ((baseName, discs) in discGroups) {
+            if (discs.size <= 1) continue
+            if (m3uByBase[baseName] != null) continue
+            organizeGroup(dir, baseName, discs.sortedBy { it.name }, files, relPrefix, tag, moves)
+        }
+    }
+
+    private fun organizeGroup(
+        parent: File,
+        baseName: String,
+        discs: List<File>,
+        siblings: List<File>,
+        relPrefix: String,
+        tag: String,
+        moves: MutableList<RekeyMove>,
+    ) {
+        val subdir = File(parent, baseName)
+        if (subdir.exists()) {
+            ScanLog.write("organize $tag: skip $baseName (target subfolder already exists)")
+            return
+        }
+        if (!subdir.mkdir()) {
+            ScanLog.write("organize $tag: failed to mkdir $baseName")
+            return
+        }
+
+        val toMove = linkedSetOf<File>()
+        toMove.addAll(discs)
+        for (disc in discs) {
+            toMove.addAll(stemSiblings(disc, siblings))
+            if (disc.extension.equals("cue", ignoreCase = true)) {
+                toMove.addAll(parseCueReferencedFiles(disc))
+            }
+        }
+
+        val moved = mutableListOf<Pair<File, File>>()
+        var failed = false
+        for (file in toMove) {
+            val target = File(subdir, file.name)
+            if (file.renameTo(target)) {
+                moved.add(file to target)
+            } else {
+                ScanLog.write("organize $tag: failed to move ${file.name} into $baseName/")
+                failed = true
+                break
+            }
+        }
+        if (failed) {
+            for ((src, dst) in moved) dst.renameTo(src)
+            subdir.delete()
+            return
+        }
+
+        val m3uFile = File(subdir, "$baseName.m3u")
+        try {
+            m3uFile.writeText(discs.joinToString("\n") { it.name } + "\n")
+        } catch (e: Throwable) {
+            ScanLog.write("organize $tag: failed to write $baseName.m3u: ${e.message}")
+            for ((src, dst) in moved) dst.renameTo(src)
+            subdir.delete()
+            return
+        }
+
+        val firstStem = discs.first().nameWithoutExtension
+        if (firstStem != baseName) {
+            migrateSidecarFiles(tag, firstStem, baseName)
+        }
+
+        val oldRel = "$relPrefix${discs.first().name}"
+        val newRel = "$relPrefix$baseName${File.separator}${m3uFile.name}"
+        moves.add(RekeyMove(oldRel, newRel))
+        ScanLog.write("organize $tag: bundled $baseName (${discs.size} discs, ${toMove.size - discs.size} companions)")
+    }
+
+    private fun stemSiblings(disc: File, siblings: List<File>): List<File> {
+        val stem = disc.nameWithoutExtension
+        return siblings.filter { other ->
+            if (other == disc || other.isDirectory) return@filter false
+            val otherStem = other.nameWithoutExtension
+            otherStem == stem ||
+                otherStem.startsWith("$stem ") ||
+                otherStem.startsWith("$stem.") ||
+                other.name.startsWith("$stem.")
+        }
+    }
+
+    private fun parseCueReferencedFiles(cue: File): List<File> {
+        val parent = cue.parentFile ?: return emptyList()
+        return try {
+            cue.useLines { lines ->
+                lines.mapNotNull { line ->
+                    val match = cueFileLineRegex.find(line) ?: return@mapNotNull null
+                    val name = match.groupValues[1].ifEmpty { match.groupValues[2] }
+                    File(parent, name).takeIf { it.isFile }
+                }.toList()
+            }
+        } catch (_: Throwable) {
+            emptyList()
+        }
+    }
+
+    private fun migrateSidecarFiles(tag: String, fromStem: String, toStem: String) {
+        val paths = CannoliPaths(cannoliRoot)
+        renameStemMatchedFiles(paths.savesFor(tag), fromStem, toStem)
+        val statesTagDir = paths.saveStatesFor(tag)
+        renameStemMatchedFiles(statesTagDir, fromStem, toStem)
+        val stateSub = File(statesTagDir, fromStem)
+        val stateSubTarget = File(statesTagDir, toStem)
+        if (stateSub.isDirectory && !stateSubTarget.exists() && stateSub.renameTo(stateSubTarget)) {
+            renameStemMatchedFiles(stateSubTarget, fromStem, toStem)
+        }
+    }
+
+    private fun renameStemMatchedFiles(dir: File, fromStem: String, toStem: String) {
+        if (!dir.isDirectory) return
+        val matches = dir.listFiles()?.filter { f ->
+            if (!f.isFile) return@filter false
+            val n = f.nameWithoutExtension
+            n == fromStem || n.startsWith("$fromStem.")
+        } ?: return
+        for (f in matches) {
+            val newName = toStem + f.name.substring(fromStem.length)
+            val target = File(dir, newName)
+            if (!target.exists()) f.renameTo(target)
+        }
     }
 
     private fun isIgnored(file: File): Boolean =
