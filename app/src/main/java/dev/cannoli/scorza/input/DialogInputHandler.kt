@@ -1414,9 +1414,41 @@ class DialogInputHandler @Inject constructor(
     }
 
     private fun deleteRom(rom: dev.cannoli.scorza.model.Rom) {
-        rom.path.delete()
+        deleteRomFiles(rom)
         romsRepository.deleteRom(rom.id)
         scanner.invalidatePlatform(rom.platformTag)
+    }
+
+    private fun deleteRomFiles(rom: dev.cannoli.scorza.model.Rom) {
+        val romFile = rom.path
+        when {
+            // Organizer-created bundle: subfolder is dedicated to this m3u (folder name == m3u stem).
+            romFile.extension.equals("m3u", ignoreCase = true) &&
+                romFile.parentFile?.name == romFile.nameWithoutExtension -> {
+                romFile.parentFile?.deleteRecursively()
+            }
+            // User-authored m3u sitting alongside discs: delete each line and the m3u itself.
+            romFile.extension.equals("m3u", ignoreCase = true) -> {
+                val parent = romFile.parentFile
+                if (parent != null) {
+                    try {
+                        romFile.useLines { lines ->
+                            for (line in lines) {
+                                val trimmed = line.trim()
+                                if (trimmed.isEmpty() || trimmed.startsWith("#")) continue
+                                File(parent, trimmed).takeIf { it.exists() && !it.isDirectory }?.delete()
+                            }
+                        }
+                    } catch (_: Throwable) { }
+                }
+                romFile.delete()
+            }
+            // Walker still produced a virtual multi-disc set (organizer was unable to move files).
+            rom.discFiles != null -> {
+                rom.discFiles.forEach { it.delete() }
+            }
+            else -> romFile.delete()
+        }
     }
 
     private fun relativeRomPath(file: File): String? {
