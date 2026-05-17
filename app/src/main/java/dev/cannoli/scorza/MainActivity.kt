@@ -281,6 +281,7 @@ class MainActivity : ComponentActivity(), ActivityActions {
             mappingRepository = mappingRepository.get(),
             editButtonsController = editButtonsController,
             nav = nav,
+            inputRouter = router,
         )
     }
 

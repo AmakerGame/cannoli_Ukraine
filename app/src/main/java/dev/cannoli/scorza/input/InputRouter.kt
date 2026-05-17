@@ -30,7 +30,7 @@ import javax.inject.Inject
 class InputRouter @Inject constructor(
     private val nav: NavigationController,
     private val dialogHandler: DialogInputHandler,
-    private val systemListHandler: SystemListInputHandler,
+    val systemListHandler: SystemListInputHandler,
     private val gameListHandler: GameListInputHandler,
     private val settingsHandler: SettingsInputHandler,
     private val onboardingHandler: OnboardingInputHandler,

@@ -235,6 +235,7 @@ fun AppNavGraph(
     mappingRepository: dev.cannoli.scorza.input.repo.MappingRepository? = null,
     editButtonsController: dev.cannoli.scorza.input.EditButtonsController? = null,
     nav: dev.cannoli.scorza.navigation.NavigationController? = null,
+    inputRouter: dev.cannoli.scorza.input.InputRouter? = null,
 ) {
     val dialog by dialogState.collectAsState()
     val appSettings by settingsViewModel.appSettings.collectAsState()
@@ -277,6 +278,7 @@ fun AppNavGraph(
         when (currentScreen) {
             is LauncherScreen.SystemList -> {
                 if (systemListViewModel == null) return@Box
+                inputRouter?.let { dev.cannoli.scorza.input.screen.compose.ScreenInput(it.systemListHandler) }
                 SystemListScreen(
                     viewModel = systemListViewModel,
                     backgroundImagePath = appSettings.backgroundImagePath,
