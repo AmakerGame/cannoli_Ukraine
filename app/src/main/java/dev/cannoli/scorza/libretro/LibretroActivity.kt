@@ -795,6 +795,13 @@ class LibretroActivity : ComponentActivity() {
         }
     }
 
+    private fun dispatchSyntheticKey(keyCode: Int, action: Int, deviceId: Int) {
+        // Build a KeyEvent with the real deviceId so InputDispatcher's evaluator lookup succeeds.
+        val now = android.os.SystemClock.uptimeMillis()
+        val ev = KeyEvent(now, now, action, keyCode, 0, 0, deviceId, 0, 0, android.view.InputDevice.SOURCE_GAMEPAD)
+        inputDispatcher.handleKeyEvent(ev)
+    }
+
     private fun fireMenuNavForKey(keyCode: Int) {
         // Bypass keycode synthesis (deviceId would be virtual and the dispatcher would skip it).
         // Calling the wired callback directly routes through registry top or legacyNavigate.
@@ -806,9 +813,37 @@ class LibretroActivity : ComponentActivity() {
         }
     }
 
+    private var menuHeldHatKey = 0
+
     private fun handleMenuMotion(event: android.view.MotionEvent) {
-        // Stick axes only. Hats reach onKeyDown via Android's KEYCODE_DPAD_* synthesis; including
-        // them here double-fires the first press on pads that emit both endpoints.
+        // The Retroid Pocket Classic built-in pad emits ONLY hat motion for the D-pad; no key
+        // events. Consuming this MotionEvent in dispatchGenericMotionEvent suppresses Android's
+        // own hat-to-keycode synthesis, so we synthesize a real KeyEvent ourselves with the
+        // device's actual deviceId and route it through inputDispatcher. The evaluator's
+        // assertSource semantics are idempotent, so pads that emit both hat and native keycode
+        // (GameSir Pocket Taco) do not double-fire.
+        val hatX = event.getAxisValue(android.view.MotionEvent.AXIS_HAT_X)
+        val hatY = event.getAxisValue(android.view.MotionEvent.AXIS_HAT_Y)
+        val hatKey = when {
+            hatY < -0.5f -> KeyEvent.KEYCODE_DPAD_UP
+            hatY > 0.5f -> KeyEvent.KEYCODE_DPAD_DOWN
+            hatX < -0.5f -> KeyEvent.KEYCODE_DPAD_LEFT
+            hatX > 0.5f -> KeyEvent.KEYCODE_DPAD_RIGHT
+            else -> 0
+        }
+        if (hatKey != menuHeldHatKey) {
+            if (menuHeldHatKey != 0) {
+                dispatchSyntheticKey(menuHeldHatKey, KeyEvent.ACTION_UP, event.deviceId)
+            }
+            menuHeldHatKey = hatKey
+            if (hatKey != 0) {
+                dispatchSyntheticKey(hatKey, KeyEvent.ACTION_DOWN, event.deviceId)
+            }
+        }
+
+        // Stick axes still bypass the dispatcher (mappings rarely bind sticks to canonical nav
+        // buttons) and drive auto-repeat via menuRepeatRunnable. Hat directions get auto-repeat
+        // from MenuNavigationPoller via PortRouter held state.
         val stickX = event.getAxisValue(android.view.MotionEvent.AXIS_X)
         val stickY = event.getAxisValue(android.view.MotionEvent.AXIS_Y)
         val key = when {
@@ -838,11 +873,6 @@ class LibretroActivity : ComponentActivity() {
     }
 
     override fun dispatchGenericMotionEvent(event: android.view.MotionEvent): Boolean {
-        val hatX = event.getAxisValue(android.view.MotionEvent.AXIS_HAT_X)
-        val hatY = event.getAxisValue(android.view.MotionEvent.AXIS_HAT_Y)
-        if (kotlin.math.abs(hatX) > 0.1f || kotlin.math.abs(hatY) > 0.1f) {
-            dev.cannoli.scorza.util.InputLog.write("igm dispatchMotion hatX=$hatX hatY=$hatY source=0x${event.source.toString(16)}")
-        }
         if (loading) return super.dispatchGenericMotionEvent(event)
         val source = event.source
         val isJoystick = source and android.view.InputDevice.SOURCE_JOYSTICK == android.view.InputDevice.SOURCE_JOYSTICK ||
@@ -969,9 +999,6 @@ class LibretroActivity : ComponentActivity() {
     }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-        dev.cannoli.scorza.util.InputLog.write(
-            "igm dispatchKeyEvent code=${event.keyCode} action=${event.action} source=0x${event.source.toString(16)} rc=${event.repeatCount}"
-        )
         when (event.keyCode) {
             KeyEvent.KEYCODE_VOLUME_UP,
             KeyEvent.KEYCODE_VOLUME_DOWN,
@@ -1001,7 +1028,6 @@ class LibretroActivity : ComponentActivity() {
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
-        dev.cannoli.scorza.util.InputLog.write("igm onKeyDown code=$keyCode screen=${currentScreen?.javaClass?.simpleName}")
         if (missingBios.isNotEmpty()) {
             if (resolveNavButton(keyCode, event.deviceId) == "btn_east") finish()
             return true
@@ -1133,26 +1159,21 @@ class LibretroActivity : ComponentActivity() {
      * pushed a ScreenInput handler, that handler wins.
      */
     private fun wireDispatcherForIGM() {
-        dev.cannoli.scorza.util.InputLog.write("igm wire dispatcher")
         val empty = dev.cannoli.scorza.input.screen.EmptyScreenInputHandler
         inputDispatcher.onUp = {
             val h = screenInputRegistry.top
-            dev.cannoli.scorza.util.InputLog.write("igm onUp reg=${if (h === empty) "empty" else h::class.simpleName}")
             if (h !== empty) h.onUp() else legacyNavigate("btn_up")
         }
         inputDispatcher.onDown = {
             val h = screenInputRegistry.top
-            dev.cannoli.scorza.util.InputLog.write("igm onDown reg=${if (h === empty) "empty" else h::class.simpleName}")
             if (h !== empty) h.onDown() else legacyNavigate("btn_down")
         }
         inputDispatcher.onLeft = {
             val h = screenInputRegistry.top
-            dev.cannoli.scorza.util.InputLog.write("igm onLeft reg=${if (h === empty) "empty" else h::class.simpleName}")
             if (h !== empty) h.onLeft() else legacyNavigate("btn_left")
         }
         inputDispatcher.onRight = {
             val h = screenInputRegistry.top
-            dev.cannoli.scorza.util.InputLog.write("igm onRight reg=${if (h === empty) "empty" else h::class.simpleName}")
             if (h !== empty) h.onRight() else legacyNavigate("btn_right")
         }
         inputDispatcher.onConfirm = {
@@ -1206,9 +1227,7 @@ class LibretroActivity : ComponentActivity() {
      * (Buttons, Shortcuts) -- those stay on the legacy onKeyDown switch path.
      */
     private fun legacyNavigate(button: String): Boolean {
-        val screen = currentScreen
-        dev.cannoli.scorza.util.InputLog.write("legacyNavigate button=$button screen=${screen?.javaClass?.simpleName ?: "null"}")
-        if (screen == null) return false
+        val screen = currentScreen ?: return false
         return when (screen) {
             is IGMScreen.Menu -> handleMenuInput(screen, button)
             is IGMScreen.Settings -> handleCategoryInput(screen, button)
