@@ -10,17 +10,22 @@ import dev.cannoli.scorza.db.LibraryRef
 import dev.cannoli.scorza.db.RecentlyPlayedRepository
 import dev.cannoli.scorza.db.RomScanner
 import dev.cannoli.scorza.db.RomsRepository
+import dev.cannoli.scorza.db.ScanScheduler
+import dev.cannoli.scorza.di.CannoliPathsProvider
 import dev.cannoli.scorza.model.AppType
 import dev.cannoli.scorza.model.Collection
 import dev.cannoli.scorza.model.CollectionType
 import dev.cannoli.scorza.model.ListItem
+import dev.cannoli.ui.components.OsdController
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -34,6 +39,9 @@ class GameListViewModel @Inject constructor(
     private val collectionsRepository: CollectionsRepository,
     private val recentlyPlayedRepository: RecentlyPlayedRepository,
     private val platformConfig: PlatformConfig,
+    private val scanScheduler: ScanScheduler,
+    private val cannoliPaths: CannoliPathsProvider,
+    private val osdController: OsdController,
     @ApplicationContext private val context: android.content.Context,
 ) {
     private val resources: android.content.res.Resources get() = context.resources
@@ -66,6 +74,63 @@ class GameListViewModel @Inject constructor(
     private val _state = MutableStateFlow(State())
     val state: StateFlow<State> = _state
 
+    private var pendingRescan: ScanScheduler.ScanResult? = null
+    private var applyRescanJob: Job? = null
+
+    init {
+        scope.launch {
+            scanScheduler.results.collectLatest { result ->
+                handleRescanResult(result)
+            }
+        }
+    }
+
+    private fun handleRescanResult(result: ScanScheduler.ScanResult) {
+        val current = _state.value
+        val activeTags = current.platformTags.map { it.uppercase() }
+        if (result.platformTag !in activeTags) return
+        if (current.reorderMode || current.multiSelectMode) {
+            pendingRescan = result
+            return
+        }
+        applyRescan(result)
+    }
+
+    private fun applyRescan(result: ScanScheduler.ScanResult) {
+        applyRescanJob?.cancel()
+        applyRescanJob = scope.launch(Dispatchers.IO) {
+            val snapshot = _state.value
+            val items = loadPlatformItems(snapshot.platformTag, snapshot.platformTags, snapshot.subfolderPath)
+            val priorId = stableIdOf(snapshot.items.getOrNull(snapshot.selectedIndex))
+            val newIndex = if (priorId != null) {
+                items.indexOfFirst { stableIdOf(it) == priorId }
+                    .takeIf { it >= 0 }
+                    ?: snapshot.selectedIndex.coerceAtMost(items.lastIndex.coerceAtLeast(0))
+            } else 0
+            _state.update { live ->
+                live.copy(
+                    items = items,
+                    favoriteRomIds = collectionsRepository.favoriteRomIds(),
+                    favoriteAppIds = collectionsRepository.favoriteAppIds(),
+                    selectedIndex = newIndex,
+                    scrollTarget = newIndex,
+                )
+            }
+            withContext(Dispatchers.Main) {
+                osdController.show("Game list updated")
+            }
+        }
+    }
+
+    private fun stableIdOf(item: ListItem?): String? = when (item) {
+        is ListItem.RomItem -> "rom:${item.rom.id}"
+        is ListItem.AppItem -> "app:${item.app.id}"
+        is ListItem.ChildCollectionItem -> "col:${item.collection.id}"
+        is ListItem.CollectionItem -> "col:${item.collection.id}"
+        is ListItem.SubfolderItem -> "sub:${item.name}"
+        else -> null
+    }
+
     var firstVisibleIndex: Int = 0
 
     private val breadcrumbStack = mutableListOf<String>()
@@ -91,7 +156,7 @@ class GameListViewModel @Inject constructor(
         indexStack.clear()
         scope.launch(Dispatchers.IO) {
             try {
-                val items = scanAndLoadPlatform(tag, tags, null)
+                val items = loadPlatformItems(tag, tags, null)
                 val displayName = platformConfig.getDisplayName(tag)
                 val favRoms = collectionsRepository.favoriteRomIds()
                 _state.value = State(
@@ -103,6 +168,7 @@ class GameListViewModel @Inject constructor(
                     selectedIndex = 0,
                     isLoading = false
                 )
+                maybeBackstop(tags)
             } finally {
                 withContext(Dispatchers.Main) { onReady() }
             }
@@ -381,7 +447,7 @@ class GameListViewModel @Inject constructor(
                 val type = if (current.platformTag == "tools") AppType.TOOL else AppType.PORT
                 appsRepository.all(type).map { ListItem.AppItem(it) }
             } else {
-                scanAndLoadPlatform(current.platformTag, current.platformTags, current.subfolderPath)
+                loadPlatformItems(current.platformTag, current.platformTags, current.subfolderPath)
             }
             val sortedItems = if (current.platformTag == "tools" || current.platformTag == "ports") {
                 val freshFavs = collectionsRepository.favoriteAppIds()
@@ -426,11 +492,19 @@ class GameListViewModel @Inject constructor(
     fun confirmMultiSelect(): Set<Int> {
         val prev = _state.value
         _state.update { it.copy(multiSelectMode = false, checkedIndices = emptySet()) }
+        pendingRescan?.let { pending ->
+            pendingRescan = null
+            handleRescanResult(pending)
+        }
         return prev.checkedIndices
     }
 
     fun cancelMultiSelect() {
         _state.update { it.copy(multiSelectMode = false, checkedIndices = emptySet()) }
+        pendingRescan?.let { pending ->
+            pendingRescan = null
+            handleRescanResult(pending)
+        }
     }
 
     fun hasChildCollections(): Boolean = _state.value.items.any { it is ListItem.ChildCollectionItem }
@@ -509,6 +583,10 @@ class GameListViewModel @Inject constructor(
             }
         }
         _state.update { it.copy(reorderMode = false, reorderOriginalIndex = -1) }
+        pendingRescan?.let { pending ->
+            pendingRescan = null
+            handleRescanResult(pending)
+        }
     }
 
     fun cancelReorder() {
@@ -521,6 +599,10 @@ class GameListViewModel @Inject constructor(
         } else if (current.isCollection && current.collectionId != null) {
             val id = current.collectionId
             scope.launch(Dispatchers.IO) { loadCollectionByIdInternal(id) {} }
+        }
+        pendingRescan?.let { pending ->
+            pendingRescan = null
+            handleRescanResult(pending)
         }
     }
 
@@ -535,7 +617,7 @@ class GameListViewModel @Inject constructor(
     ) {
         scope.launch(Dispatchers.IO) {
             try {
-                val items = scanAndLoadPlatform(tag, tags, subfolder)
+                val items = loadPlatformItems(tag, tags, subfolder)
                 val displayName = platformConfig.getDisplayName(tag)
                 val breadcrumb = if (breadcrumbStack.isEmpty()) displayName
                 else (listOf(displayName) + breadcrumbStack).joinToString(" › ")
@@ -555,16 +637,28 @@ class GameListViewModel @Inject constructor(
                     subfolderPath = subfolder,
                     isLoading = false
                 )
+                maybeBackstop(tags)
             } finally {
                 withContext(Dispatchers.Main) { onReady() }
             }
         }
     }
 
-    private fun scanAndLoadPlatform(tag: String, tags: List<String>, subfolder: String?): List<ListItem> {
-        for (t in tags) romScanner.scanPlatform(t.uppercase(), isArcade = platformConfig.isArcade(t))
+    private fun loadPlatformItems(tag: String, tags: List<String>, subfolder: String?): List<ListItem> {
         val items = tags.flatMap { romsRepository.gamesForPlatform(it.uppercase(), subfolder) }
         return sortFavoritesFirst(items)
+    }
+
+    private fun maybeBackstop(tags: List<String>) {
+        val romDir = cannoliPaths.romDir
+        for (t in tags) {
+            val tag = t.uppercase()
+            val dir = File(romDir, tag)
+            if (!dir.exists()) continue
+            val onDisk = dir.lastModified()
+            val stored = romScanner.lastScannedMtime(tag)
+            if (onDisk != stored) scanScheduler.enqueue(tag)
+        }
     }
 
     private fun sortFavoritesFirst(items: List<ListItem>): List<ListItem> {
