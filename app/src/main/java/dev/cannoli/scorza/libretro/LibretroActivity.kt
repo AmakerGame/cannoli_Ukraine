@@ -1124,21 +1124,26 @@ class LibretroActivity : ComponentActivity() {
      * pushed a ScreenInput handler, that handler wins.
      */
     private fun wireDispatcherForIGM() {
+        dev.cannoli.scorza.util.InputLog.write("igm wire dispatcher")
         val empty = dev.cannoli.scorza.input.screen.EmptyScreenInputHandler
         inputDispatcher.onUp = {
             val h = screenInputRegistry.top
+            dev.cannoli.scorza.util.InputLog.write("igm onUp reg=${if (h === empty) "empty" else h::class.simpleName}")
             if (h !== empty) h.onUp() else legacyNavigate("btn_up")
         }
         inputDispatcher.onDown = {
             val h = screenInputRegistry.top
+            dev.cannoli.scorza.util.InputLog.write("igm onDown reg=${if (h === empty) "empty" else h::class.simpleName}")
             if (h !== empty) h.onDown() else legacyNavigate("btn_down")
         }
         inputDispatcher.onLeft = {
             val h = screenInputRegistry.top
+            dev.cannoli.scorza.util.InputLog.write("igm onLeft reg=${if (h === empty) "empty" else h::class.simpleName}")
             if (h !== empty) h.onLeft() else legacyNavigate("btn_left")
         }
         inputDispatcher.onRight = {
             val h = screenInputRegistry.top
+            dev.cannoli.scorza.util.InputLog.write("igm onRight reg=${if (h === empty) "empty" else h::class.simpleName}")
             if (h !== empty) h.onRight() else legacyNavigate("btn_right")
         }
         inputDispatcher.onConfirm = {
@@ -1192,7 +1197,9 @@ class LibretroActivity : ComponentActivity() {
      * (Buttons, Shortcuts) -- those stay on the legacy onKeyDown switch path.
      */
     private fun legacyNavigate(button: String): Boolean {
-        val screen = currentScreen ?: return false
+        val screen = currentScreen
+        dev.cannoli.scorza.util.InputLog.write("legacyNavigate button=$button screen=${screen?.javaClass?.simpleName ?: "null"}")
+        if (screen == null) return false
         return when (screen) {
             is IGMScreen.Menu -> handleMenuInput(screen, button)
             is IGMScreen.Settings -> handleCategoryInput(screen, button)
