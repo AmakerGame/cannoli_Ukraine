@@ -1033,6 +1033,10 @@ class LibretroActivity : ComponentActivity() {
                 }
             }
             bindingController.keyUp(keyCode)
+            // Route through the dispatcher so the evaluator releases the canonical state.
+            // Without this the next ACTION_DOWN sees the canonical already asserted and produces
+            // no Pressed delta -- subsequent D-pad presses appear to do nothing.
+            if (::inputDispatcher.isInitialized) inputDispatcher.handleKeyEvent(event)
             return true
         }
         val port = portRouter.portFor(event.deviceId) ?: 0
