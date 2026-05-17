@@ -233,6 +233,7 @@ class Importer(
     )
 
     private fun importCollectionParents(collectionIdsByStem: Map<String, Long>) {
+        val nextSort = HashMap<Long, Long>()
         for ((childStem, parentStem) in readLegacyCollectionParents()) {
             val childId = collectionIdsByStem[childStem]
             val parentId = collectionIdsByStem[parentStem]
@@ -240,7 +241,12 @@ class Importer(
                 orphan("collection_parents", "$childStem -> $parentStem")
                 continue
             }
-            conn.execute("UPDATE collections SET parent_id = ? WHERE id = ?", parentId, childId)
+            val order = nextSort.getOrDefault(parentId, 0L)
+            nextSort[parentId] = order + 1
+            conn.execute(
+                "UPDATE collections SET parent_id = ?, sort_order = ? WHERE id = ?",
+                parentId, order, childId,
+            )
         }
     }
 
