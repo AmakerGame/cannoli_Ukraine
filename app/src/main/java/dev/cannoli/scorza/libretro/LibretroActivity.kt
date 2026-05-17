@@ -838,6 +838,11 @@ class LibretroActivity : ComponentActivity() {
     }
 
     override fun dispatchGenericMotionEvent(event: android.view.MotionEvent): Boolean {
+        val hatX = event.getAxisValue(android.view.MotionEvent.AXIS_HAT_X)
+        val hatY = event.getAxisValue(android.view.MotionEvent.AXIS_HAT_Y)
+        if (kotlin.math.abs(hatX) > 0.1f || kotlin.math.abs(hatY) > 0.1f) {
+            dev.cannoli.scorza.util.InputLog.write("igm dispatchMotion hatX=$hatX hatY=$hatY source=0x${event.source.toString(16)}")
+        }
         if (loading) return super.dispatchGenericMotionEvent(event)
         val source = event.source
         val isJoystick = source and android.view.InputDevice.SOURCE_JOYSTICK == android.view.InputDevice.SOURCE_JOYSTICK ||
@@ -964,6 +969,9 @@ class LibretroActivity : ComponentActivity() {
     }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        dev.cannoli.scorza.util.InputLog.write(
+            "igm dispatchKeyEvent code=${event.keyCode} action=${event.action} source=0x${event.source.toString(16)} rc=${event.repeatCount}"
+        )
         when (event.keyCode) {
             KeyEvent.KEYCODE_VOLUME_UP,
             KeyEvent.KEYCODE_VOLUME_DOWN,
@@ -993,6 +1001,7 @@ class LibretroActivity : ComponentActivity() {
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
+        dev.cannoli.scorza.util.InputLog.write("igm onKeyDown code=$keyCode screen=${currentScreen?.javaClass?.simpleName}")
         if (missingBios.isNotEmpty()) {
             if (resolveNavButton(keyCode, event.deviceId) == "btn_east") finish()
             return true
