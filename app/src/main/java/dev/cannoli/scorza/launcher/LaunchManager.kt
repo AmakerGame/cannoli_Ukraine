@@ -178,9 +178,9 @@ class LaunchManager(
         return m3uFile
     }
 
-    fun resolveLaunchFile(rom: Rom): File? {
+    fun resolveLaunchFile(rom: Rom, extractArchives: Boolean): File? {
         if (rom.discFiles != null) return createFallbackM3u(rom)
-        if (ArchiveExtractor.isArchive(rom.path) && !platformConfig.isArcade(rom.platformTag)) {
+        if (extractArchives && ArchiveExtractor.isArchive(rom.path) && !platformConfig.isArcade(rom.platformTag)) {
             return ArchiveExtractor.extract(rom.path, context.cacheDir)
         }
         return rom.path
@@ -240,8 +240,8 @@ class LaunchManager(
         debugLog("launchRom entered: ${rom.platformTag} / ${rom.path.name} target=${rom.launchTarget::class.simpleName}")
         if (launching) return null
         launching = true
-        val launchFile = resolveLaunchFile(rom)
-            ?: return errorAndReset(DialogState.LaunchError("Failed to extract archive"))
+        val launchFile = resolveLaunchFile(rom, extractArchives = false)
+            ?: return errorAndReset(DialogState.LaunchError("Failed to resolve launch file"))
 
         val gameOverride = platformConfig.getGameOverride(rom.path.absolutePath)
         if (gameOverride?.appPackage != null) {
@@ -276,7 +276,9 @@ class LaunchManager(
                             val embeddedCorePath = findEmbeddedCore(core)
                             debugLog("RetroArch target: core=$core runnerPref=$runnerPref embeddedCorePath=$embeddedCorePath")
                             if (embeddedCorePath != null) {
-                                launchEmbedded(rom.copy(path = launchFile), embeddedCorePath, originalRomPath = rom.path.absolutePath)
+                                val embeddedFile = resolveLaunchFile(rom, extractArchives = true)
+                                    ?: return errorAndReset(DialogState.LaunchError("Failed to extract archive"))
+                                launchEmbedded(rom.copy(path = embeddedFile), embeddedCorePath, originalRomPath = rom.path.absolutePath)
                                 return null
                             }
                         }
@@ -328,7 +330,9 @@ class LaunchManager(
                 }
             }
             is LaunchTarget.Embedded -> {
-                launchEmbedded(rom.copy(path = launchFile), target.corePath, originalRomPath = rom.path.absolutePath)
+                val embeddedFile = resolveLaunchFile(rom, extractArchives = true)
+                    ?: return errorAndReset(DialogState.LaunchError("Failed to extract archive"))
+                launchEmbedded(rom.copy(path = embeddedFile), target.corePath, originalRomPath = rom.path.absolutePath)
                 return null
             }
         }
@@ -348,8 +352,9 @@ class LaunchManager(
         if (launching) return null
         launching = true
         val resumeSlot = findMostRecentSlot(rom) ?: 0
-        val launchFile = resolveLaunchFile(rom) ?: run { launching = false; return null }
         val embeddedCorePath = getEmbeddedCorePath(rom)
+        val launchFile = resolveLaunchFile(rom, extractArchives = embeddedCorePath != null)
+            ?: run { launching = false; return null }
         if (embeddedCorePath != null) {
             launchEmbedded(rom.copy(path = launchFile), embeddedCorePath, resumeSlot, originalRomPath = rom.path.absolutePath)
             return null
