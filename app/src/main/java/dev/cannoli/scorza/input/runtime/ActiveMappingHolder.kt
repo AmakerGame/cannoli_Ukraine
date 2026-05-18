@@ -19,8 +19,11 @@ class ActiveMappingHolder {
     }
 }
 
-fun DeviceMapping?.confirmButton(): dev.cannoli.ui.ConfirmButton =
-    if (this?.menuConfirm == dev.cannoli.scorza.input.CanonicalButton.BTN_EAST) dev.cannoli.ui.ConfirmButton.EAST else dev.cannoli.ui.ConfirmButton.SOUTH
+fun DeviceMapping?.confirmButton(): dev.cannoli.ui.ConfirmButton = when {
+    this == null -> dev.cannoli.ui.ConfirmButton.EAST
+    this.menuConfirm == dev.cannoli.scorza.input.CanonicalButton.BTN_EAST -> dev.cannoli.ui.ConfirmButton.EAST
+    else -> dev.cannoli.ui.ConfirmButton.SOUTH
+}
 
 fun DeviceMapping?.labelSet(fallback: dev.cannoli.ui.ButtonLabelSet): dev.cannoli.ui.ButtonLabelSet =
     when (this?.glyphStyle) {
