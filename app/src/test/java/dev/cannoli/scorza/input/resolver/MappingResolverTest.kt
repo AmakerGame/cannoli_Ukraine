@@ -42,7 +42,7 @@ class MappingResolverTest {
         bundledRa: List<RetroArchCfgEntry> = emptyList(),
     ) = MappingResolver(
         repo,
-        dev.cannoli.scorza.input.autoconfig.BundledAutoconfigEntries { bundledRa },
+        dev.cannoli.scorza.input.autoconfig.BundledAutoconfigEntries.forTest(bundledRa),
         defaultHints,
         tempFolder.root,
     )

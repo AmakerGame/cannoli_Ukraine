@@ -87,6 +87,7 @@ class ControllerBridge(
         listener = l
         inputManager.registerInputDeviceListener(l, null)
         scheduleSettle()
+        bundledCfgs?.onLoaded { if (listener != null) settleNow() }
     }
 
     fun stop(context: Context) {

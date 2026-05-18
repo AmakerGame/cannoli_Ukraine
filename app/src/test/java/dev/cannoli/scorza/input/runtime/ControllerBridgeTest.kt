@@ -49,7 +49,7 @@ class ControllerBridgeTest {
         )
         return MappingResolver(
             repo,
-            dev.cannoli.scorza.input.autoconfig.BundledAutoconfigEntries { ra },
+            dev.cannoli.scorza.input.autoconfig.BundledAutoconfigEntries.forTest(ra),
             hints,
             tempFolder.root,
         )
