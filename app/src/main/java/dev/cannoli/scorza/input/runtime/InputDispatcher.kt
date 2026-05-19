@@ -228,6 +228,9 @@ class InputDispatcher @Inject constructor(
         onR1 = { if (dialogHandler?.onR1() != true) screen().onR1() }
         onL2 = { if (dialogHandler?.onL2() != true) screen().onL2() }
         onR2 = { if (dialogHandler?.onR2() != true) screen().onR2() }
+        onL3 = { if (dialogHandler?.onL3() != true) screen().onL3() }
+        onR3 = { if (dialogHandler?.onR3() != true) screen().onR3() }
+        onMenu = { if (dialogHandler?.onMenu() != true) screen().onMenu() }
     }
 
     companion object {

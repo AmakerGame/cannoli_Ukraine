@@ -1204,6 +1204,9 @@ class LibretroActivity : ComponentActivity() {
             override fun onR1() { onButton("btn_r") }
             override fun onL2() { onButton("btn_l2") }
             override fun onR2() { onButton("btn_r2") }
+            override fun onL3() { onButton("btn_l3") }
+            override fun onR3() { onButton("btn_r3") }
+            override fun onMenu() { onButton("btn_menu") }
         }
 
     private fun syncSyntheticTrigger(

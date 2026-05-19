@@ -16,5 +16,8 @@ interface DialogPrecedence {
     fun onR1(): Boolean = false
     fun onL2(): Boolean = false
     fun onR2(): Boolean = false
+    fun onL3(): Boolean = false
+    fun onR3(): Boolean = false
+    fun onMenu(): Boolean = false
     fun cancelSelectHold() {}
 }
