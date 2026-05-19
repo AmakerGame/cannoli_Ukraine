@@ -974,6 +974,12 @@ class LibretroActivity : ComponentActivity() {
         val source = event.source
         val isGamepad = source and android.view.InputDevice.SOURCE_GAMEPAD == android.view.InputDevice.SOURCE_GAMEPAD ||
                 source and android.view.InputDevice.SOURCE_JOYSTICK == android.view.InputDevice.SOURCE_JOYSTICK
+        if (event.action == KeyEvent.ACTION_DOWN) {
+            val ctx = if (currentScreen != null) "libretro/igm" else "libretro/game"
+            dev.cannoli.scorza.util.InputLog.write(
+                "[$ctx dispatch] keyCode=${event.keyCode} source=0x${source.toString(16)} isGamepad=$isGamepad"
+            )
+        }
         if (isGamepad || event.keyCode == KeyEvent.KEYCODE_MENU) {
             if (event.repeatCount > 0) {
                 val cs = currentScreen
@@ -989,6 +995,8 @@ class LibretroActivity : ComponentActivity() {
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
+        val onKeyDownCtx = if (currentScreen != null) "libretro/igm" else "libretro/game"
+        dev.cannoli.scorza.util.InputLog.write("[$onKeyDownCtx onKeyDown] keyCode=$keyCode")
         if (missingBios.isNotEmpty()) {
             if (resolveNavButton(keyCode, event.deviceId) == "btn_east") finish()
             return true

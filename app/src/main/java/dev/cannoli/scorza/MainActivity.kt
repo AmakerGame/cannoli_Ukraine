@@ -417,6 +417,11 @@ class MainActivity : ComponentActivity(), ActivityActions {
     }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (event.action == KeyEvent.ACTION_DOWN) {
+            dev.cannoli.scorza.util.InputLog.write(
+                "[launcher dispatch] keyCode=${event.keyCode} source=0x${event.source.toString(16)}"
+            )
+        }
         if (!isReady) {
             if (event.action == KeyEvent.ACTION_DOWN
                 && bootSequencer.state.value is BootState.Error
