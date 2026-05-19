@@ -792,13 +792,14 @@ class LibretroActivity : ComponentActivity() {
     private val portConsumedKeys = Array(LibretroRunner.MAX_PORTS) { mutableSetOf<Int>() }
     private val portPressedKeys = Array(LibretroRunner.MAX_PORTS) { mutableSetOf<Int>() }
 
-    private fun handleMenuMotion(event: android.view.MotionEvent) {
+    private fun handleMenuMotion(event: android.view.MotionEvent): Boolean {
         // Route through the dispatcher first so the evaluator can react to Hat bindings (e.g.
         // Retroid Pocket Controller's D-pad uses hat axes 15/16). The dispatcher will fire
         // BTN_UP/DOWN/LEFT/RIGHT via the wired callback; PortRouter held-state is updated so
         // MenuNavigationPoller drives auto-repeat. Stick fallback below covers devices whose
         // mapping doesn't bind sticks as canonical navigation.
-        if (::inputDispatcher.isInitialized) inputDispatcher.handleMotionEvent(event)
+        val consumed = if (::inputDispatcher.isInitialized)
+            inputDispatcher.handleMotionEvent(event) else false
         if (::stickAutoRepeat.isInitialized) stickAutoRepeat.handleMotion(event)
 
         // Guide-screen special case: it owns its own continuous scroll mechanism (guideScrollDir
@@ -816,6 +817,7 @@ class LibretroActivity : ComponentActivity() {
                 guideScrollXDir = 0
             }
         }
+        return consumed
     }
 
     override fun dispatchTouchEvent(event: android.view.MotionEvent): Boolean {
@@ -829,17 +831,25 @@ class LibretroActivity : ComponentActivity() {
                 source and android.view.InputDevice.SOURCE_GAMEPAD == android.view.InputDevice.SOURCE_GAMEPAD
         if (!isJoystick) return super.dispatchGenericMotionEvent(event)
         if (screenStack.isNotEmpty()) {
-            handleMenuMotion(event)
-            return true
+            val menuConsumed = handleMenuMotion(event)
+            if (menuConsumed) return true
+            return super.dispatchGenericMotionEvent(event)
         }
 
         val port = portRouter.portFor(event.deviceId) ?: 0
         val mapping = portRouter.mappingForPort(port)
         val evaluator = evaluatorForPort(port)
 
+        // Track whether any axis binding actually matched. If nothing did (e.g. the active
+        // mapping uses Button(19/20/21/22) for D-pad and the device emits HAT axes 15/16),
+        // we hand the event off to super so ViewRootImpl's SyntheticJoystickHandler can
+        // generate KEYCODE_DPAD_* KeyEvents from the unbound HAT motion. Those reach
+        // dispatchKeyEvent and fire the Button bindings.
+        var axisBoundDeltas = false
         if (evaluator != null) {
             val axisValues = collectMotionAxes(mapping, event)
-            evaluator.evaluateAxis(axisValues)
+            val deltas = evaluator.evaluateAxis(axisValues)
+            axisBoundDeltas = deltas.isNotEmpty()
             pushPortMask(port)
         }
 
@@ -872,7 +882,8 @@ class LibretroActivity : ComponentActivity() {
         )
         runner.setAnalog(port, 1, (rStickX * 32767).toInt().coerceIn(-32768, 32767),
             (rStickY * 32767).toInt().coerceIn(-32768, 32767))
-        return true
+        if (axisBoundDeltas) return true
+        return super.dispatchGenericMotionEvent(event)
     }
 
     private fun evaluatorForPort(port: Int): dev.cannoli.scorza.input.runtime.PortEvaluator? {
