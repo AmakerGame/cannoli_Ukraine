@@ -73,7 +73,11 @@ class EditButtonsInputHandler @Inject constructor(
             ?: return
         if (mapping.bindings[canonical].isNullOrEmpty()) return
         val newBindings = mapping.bindings.toMutableMap().apply { this[canonical] = emptyList() }
-        val updated = mapping.copy(bindings = newBindings, userEdited = true)
+        val updated = mapping.copy(
+            bindings = newBindings,
+            userEdited = true,
+            source = dev.cannoli.scorza.input.MappingSource.USER_WIZARD,
+        )
         mappingRepository.save(updated)
         portRouter.updateMapping(updated, rebuildEvaluator = true)
         if (activeMappingHolder.active.value?.id == updated.id) {

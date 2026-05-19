@@ -142,7 +142,15 @@ class EditButtonsController @Inject constructor(
             }
         }
 
-        val saved = mapping.copy(bindings = newBindings, userEdited = true)
+        // Promote source to USER_WIZARD on actual binding changes so the resolver can
+        // distinguish "user customized buttons" from "cosmetic edit on an ANDROID_DEFAULT
+        // fallback." Without this, an ANDROID_DEFAULT mapping with a cosmetic toggle blocks
+        // bundled RA cfg matches on the next resolve.
+        val saved = mapping.copy(
+            bindings = newBindings,
+            userEdited = true,
+            source = MappingSource.USER_WIZARD,
+        )
         repository.save(saved)
         portRouter.updateMapping(saved, rebuildEvaluator = true)
         if (activeMappingHolder.active.value?.id == saved.id) {
