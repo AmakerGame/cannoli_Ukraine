@@ -6,6 +6,7 @@ import dev.cannoli.scorza.model.ListItem
 import dev.cannoli.scorza.model.Rom
 import dev.cannoli.scorza.di.CannoliPathsProvider
 import dev.cannoli.scorza.util.ArtworkLookup
+import dev.cannoli.scorza.util.NaturalSort
 import org.json.JSONArray
 import java.io.File
 
@@ -115,7 +116,7 @@ class RomsRepository(
             val firstSeg = rom.relativeAfterPlatform().removePrefix(basePrefix).substringBefore(File.separator)
             if (firstSeg.isNotEmpty()) seen.add(firstSeg)
         }
-        return seen.map { ListItem.SubfolderItem(name = it, path = basePrefix + it) }
+        return seen.sortedWith(NaturalSort).map { ListItem.SubfolderItem(name = it, path = basePrefix + it) }
     }
 
     private fun rowToRom(stmt: SQLiteStatement): Rom {
