@@ -37,7 +37,7 @@ val LocalScaleFactor = staticCompositionLocalOf { 1f }
 data class ColorPreset(val name: String, val color: Long)
 
 val COLOR_PRESETS = listOf(
-    ColorPreset("Black", 0xFF1A1A1E),
+    ColorPreset("Black", 0xFF000000),
     ColorPreset("Dark Grey", 0xFF3A3A3C),
     ColorPreset("Light Grey", 0xFFC0BFBE),
     ColorPreset("White", 0xFFFFFFFF),
