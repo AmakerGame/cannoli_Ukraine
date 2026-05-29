@@ -14,7 +14,7 @@ class ArtworkLookup(private val pathsProvider: CannoliPathsProvider) {
         val map = cache.getOrPut(platformTag) { buildMap(platformTag) }
         val hit = map[basename]
         if (hit != null) return hit
-        if (romFile.name.endsWith(".p8.png", ignoreCase = true) && isPng(romFile)) return romFile
+        if (romFile.name.endsWith(".p8.png", ignoreCase = true)) return romFile
         return null
     }
 
@@ -32,22 +32,6 @@ class ArtworkLookup(private val pathsProvider: CannoliPathsProvider) {
         } else {
             romFile.nameWithoutExtension
         }
-
-    private fun isPng(file: File): Boolean {
-        if (!file.isFile) return false
-        return try {
-            file.inputStream().use { input ->
-                val header = ByteArray(8)
-                if (input.read(header) != 8) return false
-                header[0] == 0x89.toByte() && header[1] == 0x50.toByte() &&
-                    header[2] == 0x4E.toByte() && header[3] == 0x47.toByte() &&
-                    header[4] == 0x0D.toByte() && header[5] == 0x0A.toByte() &&
-                    header[6] == 0x1A.toByte() && header[7] == 0x0A.toByte()
-            }
-        } catch (_: Throwable) {
-            false
-        }
-    }
 
     private fun buildMap(platformTag: String): Map<String, File> {
         val tagDir = File(artDir, platformTag)
