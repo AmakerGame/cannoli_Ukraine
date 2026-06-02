@@ -537,8 +537,8 @@ class PlatformConfig(
     fun setDisplayName(tag: String, name: String) {
         val configFile = paths.platformsIni
         val currentNames = ini.getSection("platforms").toMutableMap()
-        val defaultName = defaultPlatformNames[tag.uppercase()]
-        if (name == defaultName || name == tag) {
+        val naturalName = defaultPlatformNames[tag.uppercase()] ?: tag
+        if (name.isBlank() || name == naturalName) {
             currentNames.remove(tag)
         } else {
             currentNames[tag] = name

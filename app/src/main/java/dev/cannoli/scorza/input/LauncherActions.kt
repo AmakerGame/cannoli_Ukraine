@@ -153,11 +153,12 @@ class LauncherActions @Inject constructor(
 
     fun handleSystemListRename(state: DialogState.RenameInput) {
         val newName = state.currentName.trim()
-        if (newName.isEmpty() || newName == state.gameName) {
+        val item = systemListViewModel.getSelectedItem()
+        val blankResetsToDefault = item is SystemListViewModel.ListItem.PlatformItem
+        if (newName == state.gameName || (newName.isEmpty() && !blankResetsToDefault)) {
             nav.dialogState.value = DialogState.None
             return
         }
-        val item = systemListViewModel.getSelectedItem()
         when (item) {
             is SystemListViewModel.ListItem.PlatformItem -> {
                 ioScope.launch {

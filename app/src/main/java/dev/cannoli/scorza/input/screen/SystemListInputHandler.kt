@@ -134,10 +134,6 @@ class SystemListInputHandler @Inject constructor(
         }
     }
 
-    fun handleRename(state: DialogState.RenameInput) {
-        launcherActions.handleSystemListRename(state)
-    }
-
     private fun pageJump(direction: Int) {
         val state = systemListViewModel.state.value
         val newIdx = PageJump.compute(direction, state.items.size, state.selectedIndex, nav.activeListState)
