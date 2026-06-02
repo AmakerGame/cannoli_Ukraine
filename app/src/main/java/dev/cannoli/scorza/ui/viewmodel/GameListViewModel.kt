@@ -570,9 +570,8 @@ class GameListViewModel @Inject constructor(
             val ids = current.items.mapNotNull { (it as? ListItem.CollectionItem)?.collection?.id }
             scope.launch(Dispatchers.IO) { collectionsRepository.setCollectionOrder(ids) }
         } else if (current.platformTag == "tools" || current.platformTag == "ports") {
-            val type = if (current.platformTag == "tools") AppType.TOOL else AppType.PORT
             val ids = current.items.mapNotNull { (it as? ListItem.AppItem)?.app?.id }
-            scope.launch(Dispatchers.IO) { appsRepository.setOrder(type, ids) }
+            scope.launch(Dispatchers.IO) { appsRepository.setOrder(ids) }
         } else if (current.isCollection && current.collectionId != null) {
             val collectionId = current.collectionId
             val childIds = current.items.mapNotNull { (it as? ListItem.ChildCollectionItem)?.collection?.id }

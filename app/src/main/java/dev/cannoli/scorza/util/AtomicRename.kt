@@ -71,7 +71,7 @@ class AtomicRename(private val cannoliRoot: File) {
             updateMapFile(romDir, romFile.name, "$newBaseName.$extension")
         } catch (e: Exception) {
             try {
-                rollback(backupTagDir, romFile, platformTag, oldBaseName)
+                rollback(backupTagDir, romFile, platformTag)
             } catch (_: Exception) { }
             return RenameResult(false, "Rename failed: ${e.message}")
         }
@@ -116,7 +116,7 @@ class AtomicRename(private val cannoliRoot: File) {
         }
     }
 
-    private fun rollback(backupDir: File, originalRom: File, tag: String, oldBaseName: String) {
+    private fun rollback(backupDir: File, originalRom: File, tag: String) {
         val romDir = originalRom.parentFile ?: return
         backupDir.listFiles()?.forEach { backup ->
             // The "target" subdir holds files that lived at the new name before

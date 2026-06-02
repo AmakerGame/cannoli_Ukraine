@@ -44,7 +44,7 @@ class AppsRepository(private val db: CannoliDatabase) {
 
     fun delete(appId: Long) = db.execute("DELETE FROM apps WHERE id = ?", appId)
 
-    fun setOrder(type: AppType, orderedIds: List<Long>) = db.transaction { conn ->
+    fun setOrder(orderedIds: List<Long>) = db.transaction { conn ->
         orderedIds.forEachIndexed { index, id ->
             conn.execute("UPDATE apps SET sort_order = ? WHERE id = ?", index.toLong(), id)
         }
