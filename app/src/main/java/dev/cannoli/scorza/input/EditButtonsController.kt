@@ -1,11 +1,6 @@
 package dev.cannoli.scorza.input
 
 import dagger.hilt.android.scopes.ActivityScoped
-import dev.cannoli.scorza.input.AnalogRole
-import dev.cannoli.scorza.input.CanonicalButton
-import dev.cannoli.scorza.input.DeviceMapping
-import dev.cannoli.scorza.input.HatDirection
-import dev.cannoli.scorza.input.InputBinding
 import dev.cannoli.scorza.input.repo.MappingRepository
 import dev.cannoli.scorza.input.runtime.ActiveMappingHolder
 import dev.cannoli.scorza.input.runtime.PortRouter

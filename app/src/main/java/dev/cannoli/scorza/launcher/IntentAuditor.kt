@@ -4,7 +4,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import dagger.hilt.android.qualifiers.ApplicationContext
-import dev.cannoli.scorza.config.AppConfig
 import dev.cannoli.scorza.config.CannoliPaths
 import dev.cannoli.scorza.config.LaunchMethod
 import dev.cannoli.scorza.config.PlatformConfig
@@ -102,11 +101,6 @@ class IntentAuditor @Inject constructor(
         val f = File(dir, "sample.rom")
         if (!f.exists()) f.writeBytes(byteArrayOf(0))
         return f
-    }
-
-    private fun buildIntent(cfg: AppConfig, romFile: File): Intent {
-        val resolved = EmulatorIntentBuilder.resolve(context, cfg, romFile)
-        return EmulatorIntentBuilder.toAndroidIntent(context, resolved, cfg)
     }
 
     private fun hasContentUri(resolved: ResolvedIntent): Boolean {

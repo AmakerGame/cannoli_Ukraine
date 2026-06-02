@@ -1,6 +1,5 @@
 package dev.cannoli.scorza.input.runtime
 
-import dev.cannoli.scorza.input.AnalogRole
 import dev.cannoli.scorza.input.CanonicalButton
 import dev.cannoli.scorza.input.ConnectedDevice
 import dev.cannoli.scorza.input.DeviceMatchRule
@@ -11,7 +10,6 @@ import dev.cannoli.scorza.input.InputBinding
 import dev.cannoli.scorza.input.MappingSource
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 

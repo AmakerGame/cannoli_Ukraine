@@ -4,7 +4,6 @@ import java.io.File
 
 object PresetParser {
 
-    private val PRESET_EXTENSIONS = setOf("glslp")
     private val SHADER_EXTENSIONS = setOf("glsl")
 
     fun parse(presetFile: File): ShaderPreset? {

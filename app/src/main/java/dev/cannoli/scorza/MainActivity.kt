@@ -8,7 +8,6 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.os.Environment
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
@@ -26,14 +25,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
-import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.WindowInsetsControllerCompat
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
-import androidx.lifecycle.lifecycleScope
-import kotlinx.coroutines.flow.filter
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import dagger.hilt.android.AndroidEntryPoint
 import dev.cannoli.scorza.boot.BootSequencer
@@ -72,7 +67,6 @@ import dev.cannoli.scorza.ui.viewmodel.SettingsViewModel
 import dev.cannoli.scorza.ui.viewmodel.SystemListViewModel
 import dev.cannoli.scorza.updater.UpdateManager
 import dev.cannoli.ui.theme.CannoliTheme
-import java.io.File
 import javax.inject.Inject
 import javax.inject.Provider
 
@@ -319,21 +313,6 @@ class MainActivity : ComponentActivity(), ActivityActions {
             dev.cannoli.scorza.util.InputLog.init(settings.sdCardRoot)
         }
         controllerBridge.settleNow()
-    }
-
-    private fun buildConnectedRows(): List<dev.cannoli.scorza.ui.viewmodel.ConnectedRow> {
-        val routes = portRouter.routes.value
-        val deviceIds = android.view.InputDevice.getDeviceIds().toList()
-        return deviceIds.mapNotNull { id ->
-            val device = android.view.InputDevice.getDevice(id) ?: return@mapNotNull null
-            val mapping = portRouter.mappingFor(id) ?: return@mapNotNull null
-            dev.cannoli.scorza.ui.viewmodel.ConnectedRow(
-                androidDeviceId = id,
-                mapping = mapping,
-                port = routes[id],
-                isBuiltIn = device.vendorId == 0 && device.productId == 0,
-            )
-        }
     }
 
     private fun registerControllerOsd() {

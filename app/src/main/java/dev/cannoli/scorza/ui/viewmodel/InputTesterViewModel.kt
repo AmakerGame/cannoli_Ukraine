@@ -214,6 +214,5 @@ class InputTesterViewModel @Inject constructor() {
     companion object {
         const val DEFAULT_EVENT_LOG_CAPACITY = 8
         private val HAT_BUTTONS = setOf("btn_up", "btn_down", "btn_left", "btn_right")
-        private val TRIGGER_BUTTONS = setOf("btn_l2", "btn_r2")
     }
 }

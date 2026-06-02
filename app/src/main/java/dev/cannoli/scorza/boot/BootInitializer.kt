@@ -1,7 +1,6 @@
 package dev.cannoli.scorza.boot
 
 import android.content.Context
-import android.content.pm.PackageManager
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.android.scopes.ActivityScoped
 import dev.cannoli.scorza.config.CannoliPaths

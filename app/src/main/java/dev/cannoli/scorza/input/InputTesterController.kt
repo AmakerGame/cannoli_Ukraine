@@ -4,10 +4,6 @@ import android.os.Handler
 import android.os.Looper
 import android.view.KeyEvent
 import android.view.MotionEvent
-import dev.cannoli.scorza.input.AnalogRole
-import dev.cannoli.scorza.input.CanonicalButton
-import dev.cannoli.scorza.input.DeviceMapping
-import dev.cannoli.scorza.input.InputBinding
 import dev.cannoli.scorza.input.runtime.ActiveMappingHolder
 import dev.cannoli.scorza.input.runtime.PortRouter
 import dev.cannoli.scorza.ui.viewmodel.DeviceInfo
@@ -145,16 +141,6 @@ class InputTesterController(
         }
     }
 
-    private fun releaseAllKeys(except: Set<String> = emptySet()) {
-        val snapshot = pressedKeycodes.toMap()
-        for ((kc, resolved) in snapshot) {
-            if (resolved in except) continue
-            val keyName = KeyEvent.keyCodeToString(kc).removePrefix("KEYCODE_")
-            viewModel.onKeyUp(0, kc, keyName, -1, "", resolved)
-            pressedKeycodes.remove(kc)
-        }
-    }
-
     private fun mostActive(mapping: Float?, fallback: Float): Float {
         if (mapping == null) return fallback
         return if (kotlin.math.abs(mapping) >= kotlin.math.abs(fallback)) mapping else fallback
@@ -203,18 +189,6 @@ class InputTesterController(
             CanonicalButton.BTN_LEFT -> "btn_left"
             CanonicalButton.BTN_RIGHT -> "btn_right"
         }
-    }
-
-    private fun mappingTriggerValue(
-        mapping: DeviceMapping?,
-        canonical: CanonicalButton,
-        event: MotionEvent,
-    ): Float? {
-        val axisBinding = mapping?.bindings?.get(canonical)
-            ?.firstNotNullOfOrNull { it as? InputBinding.Axis }
-            ?.takeIf { it.analogRole == AnalogRole.DIGITAL_BUTTON }
-            ?: return null
-        return axisBinding.normalize(event.getAxisValue(axisBinding.axis))
     }
 
     private fun mappingTriggerDisplayValue(

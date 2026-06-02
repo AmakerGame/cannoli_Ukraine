@@ -1,10 +1,8 @@
 package dev.cannoli.scorza.libretro
 
 import android.app.UiModeManager
-import android.content.Context
 import android.content.res.Configuration
 import android.graphics.Bitmap
-import android.hardware.input.InputManager
 import android.opengl.GLSurfaceView
 import android.os.Build
 import android.os.Bundle
@@ -173,7 +171,6 @@ class LibretroActivity : ComponentActivity() {
 
     private var shortcutSource by mutableStateOf(OverrideSource.GLOBAL)
     private var shortcuts by mutableStateOf(mapOf<ShortcutAction, Set<Int>>())
-    private val shortcutChordKeys = mutableSetOf<Int>()
     private var coreInfoText by mutableStateOf("")
 
     private var confirmButton = dev.cannoli.ui.ConfirmButton.EAST
@@ -2867,21 +2864,6 @@ class LibretroActivity : ComponentActivity() {
         WindowInsetsControllerCompat(window, window.decorView).apply {
             hide(WindowInsetsCompat.Type.systemBars())
             systemBarsBehavior = WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-        }
-    }
-
-    private fun buildConnectedRowsForIgm(): List<dev.cannoli.scorza.ui.viewmodel.ConnectedRow> {
-        val routes = portRouter.routes.value
-        val deviceIds = android.view.InputDevice.getDeviceIds().toList()
-        return deviceIds.mapNotNull { id ->
-            val device = android.view.InputDevice.getDevice(id) ?: return@mapNotNull null
-            val mapping = portRouter.mappingFor(id) ?: return@mapNotNull null
-            dev.cannoli.scorza.ui.viewmodel.ConnectedRow(
-                androidDeviceId = id,
-                mapping = mapping,
-                port = routes[id],
-                isBuiltIn = device.vendorId == 0 && device.productId == 0,
-            )
         }
     }
 

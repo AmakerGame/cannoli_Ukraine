@@ -10,7 +10,6 @@ import dev.cannoli.scorza.input.MappingSource
 import dev.cannoli.scorza.input.repo.MappingRepository
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test

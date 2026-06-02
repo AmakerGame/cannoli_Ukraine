@@ -1492,16 +1492,4 @@ class DialogInputHandler @Inject constructor(
         3 -> all.filter { it.runnerLabel != "Internal" && it.coreDisplayName != "Missing" && it.coreDisplayName != "None" && it.runnerLabel != "Missing" && it.runnerLabel != "Unknown" }
         else -> all
     }
-
-    private fun colorSettingTitle(settingKey: String): String {
-        val labelRes = when (settingKey) {
-            "color_accent" -> dev.cannoli.scorza.R.string.setting_color_accent
-            "color_highlight" -> dev.cannoli.scorza.R.string.setting_color_highlight
-            "color_highlight_text" -> dev.cannoli.scorza.R.string.setting_color_highlight_text
-            "color_text" -> dev.cannoli.scorza.R.string.setting_color_text
-            "color_title" -> dev.cannoli.scorza.R.string.setting_color_title
-            else -> return ""
-        }
-        return context.getString(labelRes)
-    }
 }

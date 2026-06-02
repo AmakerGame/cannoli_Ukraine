@@ -10,7 +10,6 @@ import dev.cannoli.scorza.config.CannoliPaths
 import dev.cannoli.scorza.input.autoconfig.AssetCfgSource
 import dev.cannoli.scorza.input.autoconfig.AutoconfigLoader
 import dev.cannoli.scorza.input.autoconfig.BundledAutoconfigEntries
-import dev.cannoli.scorza.input.autoconfig.RetroArchCfgEntry
 import dev.cannoli.scorza.input.repo.MappingRepository
 import dev.cannoli.scorza.input.resolver.MappingResolver
 import dev.cannoli.scorza.input.runtime.ActiveMappingHolder

@@ -245,39 +245,6 @@ class SystemListInputHandler @Inject constructor(
         )
     }
 
-    private fun onSystemListRename(state: DialogState.RenameInput) {
-        val newName = state.currentName.trim()
-        if (newName.isEmpty() || newName == state.gameName) {
-            nav.dialogState.value = DialogState.None
-            return
-        }
-        val item = systemListViewModel.getSelectedItem()
-        when (item) {
-            is SystemListViewModel.ListItem.PlatformItem -> {
-                ioScope.launch {
-                    platformConfig.setDisplayName(item.platform.tag, newName)
-                    launcherActions.rescanSystemList()
-                }
-            }
-            is SystemListViewModel.ListItem.ToolsFolder -> {
-                settings.toolsName = newName
-                launcherActions.rescanSystemList()
-            }
-            is SystemListViewModel.ListItem.PortsFolder -> {
-                settings.portsName = newName
-                launcherActions.rescanSystemList()
-            }
-            is SystemListViewModel.ListItem.CollectionItem -> {
-                ioScope.launch {
-                    collectionsRepository.rename(item.id, newName)
-                    launcherActions.rescanSystemList()
-                }
-            }
-            else -> {}
-        }
-        nav.dialogState.value = DialogState.None
-    }
-
     private fun resolveItemRef(item: SystemListViewModel.ListItem.GameItem): dev.cannoli.scorza.db.LibraryRef? {
         return when (val inner = item.item) {
             is ListItem.RomItem -> dev.cannoli.scorza.db.LibraryRef.Rom(inner.rom.id)

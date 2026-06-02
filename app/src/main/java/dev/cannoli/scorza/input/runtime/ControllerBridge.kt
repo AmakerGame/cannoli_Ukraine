@@ -7,7 +7,6 @@ import android.os.Handler
 import android.os.Looper
 import android.view.InputDevice
 import androidx.annotation.VisibleForTesting
-import dev.cannoli.scorza.input.autoconfig.RetroArchCfgEntry
 import dev.cannoli.scorza.input.CanonicalButton
 import dev.cannoli.scorza.input.ConnectedDevice
 import dev.cannoli.scorza.input.hints.ControllerHintTable

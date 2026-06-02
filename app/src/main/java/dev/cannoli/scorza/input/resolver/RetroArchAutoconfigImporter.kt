@@ -1,6 +1,5 @@
 package dev.cannoli.scorza.input.resolver
 
-import dev.cannoli.scorza.input.autoconfig.AxisRef
 import dev.cannoli.scorza.input.autoconfig.CfgHatDirection
 import dev.cannoli.scorza.input.autoconfig.HatRef
 import dev.cannoli.scorza.input.autoconfig.RetroArchCfgEntry

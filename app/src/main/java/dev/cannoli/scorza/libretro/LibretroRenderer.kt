@@ -204,7 +204,7 @@ class LibretroRenderer(private val runner: LibretroRunner) : GLSurfaceView.Rende
             val extra = fastForwardFrames
             if (extra > 0) {
                 runEmulatedFrame()
-                for (i in 1 until extra) runEmulatedFrame()
+                repeat(extra - 1) { runEmulatedFrame() }
             } else if (lockedToVsync) {
                 runEmulatedFrame()
             } else {

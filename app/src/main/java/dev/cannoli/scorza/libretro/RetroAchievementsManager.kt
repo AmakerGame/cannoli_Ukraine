@@ -191,7 +191,6 @@ class RetroAchievementsManager(
     }
     @Volatile var isOffline = false
         private set
-    @Volatile private var networkConnected = true
 
     fun setPendingReset() {
         logger("RA setPendingReset")

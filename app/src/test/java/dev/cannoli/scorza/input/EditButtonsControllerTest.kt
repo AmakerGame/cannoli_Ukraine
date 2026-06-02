@@ -1,10 +1,5 @@
 package dev.cannoli.scorza.input
 
-import dev.cannoli.scorza.input.CanonicalButton
-import dev.cannoli.scorza.input.DeviceMatchRule
-import dev.cannoli.scorza.input.DeviceMapping
-import dev.cannoli.scorza.input.InputBinding
-import dev.cannoli.scorza.input.MappingSource
 import dev.cannoli.scorza.input.repo.MappingRepository
 import org.junit.Assert.*
 import org.junit.Before

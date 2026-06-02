@@ -20,7 +20,6 @@ import dev.cannoli.scorza.launcher.LaunchManager
 import dev.cannoli.scorza.navigation.LauncherScreen
 import dev.cannoli.scorza.navigation.NavigationController
 import dev.cannoli.scorza.settings.GlobalOverridesManager
-import dev.cannoli.scorza.ui.components.CREDITS
 import dev.cannoli.scorza.ui.screens.CoreMappingEntry
 import dev.cannoli.scorza.ui.screens.DialogState
 import dev.cannoli.scorza.input.runtime.InputDispatcher
