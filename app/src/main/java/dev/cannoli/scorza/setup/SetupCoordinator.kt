@@ -1,11 +1,16 @@
 package dev.cannoli.scorza.setup
 
+import android.content.BroadcastReceiver
 import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
 import android.os.Build
 import android.os.storage.StorageManager
+import android.os.storage.StorageVolume
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dev.cannoli.scorza.util.NaturalSort
 import java.io.File
+import java.util.concurrent.Executor
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -79,4 +84,38 @@ class SetupCoordinator @Inject constructor(
     }
 
     fun isVolumeRoot(path: String): Boolean = detectStorageVolumes().any { it.second == path }
+
+    /**
+     * Invokes [onChange] when removable storage mounts/unmounts, so boot can re-evaluate setup once
+     * a card the user already configured finishes mounting (vold delays the SD scan behind the
+     * secure keyguard, so it can appear several seconds after the launcher starts). Returns a handle
+     * whose [StorageWatch.stop] unregisters; safe to call stop more than once.
+     */
+    fun watchStorage(onChange: () -> Unit): StorageWatch {
+        val sm = context.getSystemService(StorageManager::class.java)
+        if (Build.VERSION.SDK_INT >= 30) {
+            val executor = Executor { it.run() }
+            val callback = object : StorageManager.StorageVolumeCallback() {
+                override fun onStateChanged(volume: StorageVolume) { onChange() }
+            }
+            sm.registerStorageVolumeCallback(executor, callback)
+            return StorageWatch { sm.unregisterStorageVolumeCallback(callback) }
+        }
+        val receiver = object : BroadcastReceiver() {
+            override fun onReceive(c: Context?, i: Intent?) { onChange() }
+        }
+        val filter = IntentFilter().apply {
+            addAction(Intent.ACTION_MEDIA_MOUNTED)
+            addAction(Intent.ACTION_MEDIA_CHECKING)
+            addAction(Intent.ACTION_MEDIA_EJECT)
+            addAction(Intent.ACTION_MEDIA_UNMOUNTED)
+            addDataScheme("file")
+        }
+        context.registerReceiver(receiver, filter)
+        return StorageWatch { context.unregisterReceiver(receiver) }
+    }
+
+    fun interface StorageWatch {
+        fun stop()
+    }
 }

@@ -9,6 +9,20 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+/**
+ * Watches for removable-storage mount events so boot can re-evaluate setup once a card appears.
+ * Platform implementation lives in BootProviders; tests use [None].
+ */
+interface MountWatcher {
+    fun start(onChange: () -> Unit)
+    fun stop()
+
+    object None : MountWatcher {
+        override fun start(onChange: () -> Unit) {}
+        override fun stop() {}
+    }
+}
+
 class BootSequencer(
     private val permissionStatus: PermissionStatus,
     private val isSetupResolved: () -> Boolean,
@@ -17,6 +31,9 @@ class BootSequencer(
     private val startStorageDependent: () -> Unit,
     private val initRunner: InitRunner,
     private val scope: CoroutineScope,
+    private val now: () -> Long = { System.currentTimeMillis() },
+    private val mountWatcher: MountWatcher = MountWatcher.None,
+    private val scheduleTimeout: (delayMs: Long, action: () -> Unit) -> Unit = { _, _ -> },
 ) {
     fun interface InitRunner {
         suspend fun run(onPhase: (BootPhase, Float, String) -> Unit): BootResult
@@ -28,15 +45,52 @@ class BootSequencer(
     private var initJob: Job? = null
     private var storageDependentStarted = false
 
-    /** Idempotent. Call from onCreate, onResume, and every permission/picker result. */
+    // Mount-wait bookkeeping: when setup can't be resolved yet (likely the SD card is still being
+    // mounted, e.g. vold delaying the scan behind the secure keyguard), hold on the splash and wait
+    // for a mount event rather than dropping the user into the storage-select wizard immediately.
+    private var firstUnresolvedAt = 0L
+    private var hasFirstUnresolved = false
+    private var mountWatcherStarted = false
+    private var timeoutScheduled = false
+
+    /** Idempotent. Call from onCreate, onResume, and every permission/picker/mount result. */
     fun advance() {
         val before = _state.value
         if (before is BootState.Initializing) return
+        val hasStorage = permissionStatus.hasStorage()
+        val setupResolved = isSetupResolved()
+        val volumes = detectVolumes()
+
+        val unresolvedWithStorage = hasStorage && !setupResolved
+        val awaitingMount: Boolean
+        if (unresolvedWithStorage) {
+            if (!hasFirstUnresolved) {
+                hasFirstUnresolved = true
+                firstUnresolvedAt = now()
+            }
+            if (!mountWatcherStarted) {
+                mountWatcherStarted = true
+                mountWatcher.start { advance() }
+            }
+            awaitingMount = now() - firstUnresolvedAt < MOUNT_WAIT_TIMEOUT_MS
+            if (awaitingMount && !timeoutScheduled) {
+                timeoutScheduled = true
+                scheduleTimeout(MOUNT_WAIT_TIMEOUT_MS) { advance() }
+            }
+        } else {
+            awaitingMount = false
+            stopMountWatch()
+            hasFirstUnresolved = false
+            firstUnresolvedAt = 0L
+            timeoutScheduled = false
+        }
+
         val after = nextState(
             current = before,
-            hasStorage = permissionStatus.hasStorage(),
-            setupResolved = isSetupResolved(),
-            volumes = detectVolumes(),
+            hasStorage = hasStorage,
+            setupResolved = setupResolved,
+            volumes = volumes,
+            awaitingMount = awaitingMount,
         )
         when (after) {
             is BootState.NeedsPermission, is BootState.NeedsSetup, is BootState.Error, BootState.Ready, BootState.Resolving -> {
@@ -49,6 +103,13 @@ class BootSequencer(
                 }
                 startInitialization()
             }
+        }
+    }
+
+    private fun stopMountWatch() {
+        if (mountWatcherStarted) {
+            mountWatcherStarted = false
+            mountWatcher.stop()
         }
     }
 
@@ -68,6 +129,7 @@ class BootSequencer(
 
     private fun startInitialization() {
         if (initJob?.isActive == true) return
+        stopMountWatch()
         _state.value = BootState.Initializing(BootPhase.IMPORT, 0f, "Preparing")
         initJob = scope.launch {
             val result = initRunner.run { phase, progress, label ->
@@ -83,11 +145,18 @@ class BootSequencer(
     }
 
     companion object {
+        // How long to keep the splash up waiting for a removable volume to mount before falling
+        // through to the storage-select wizard. A genuine no-SD first run waits this long once; a
+        // mount event resolves it instantly, and the watcher stays armed afterwards so a late
+        // (keyguard-gated) mount still recovers automatically.
+        const val MOUNT_WAIT_TIMEOUT_MS = 6_000L
+
         fun nextState(
             current: BootState,
             hasStorage: Boolean,
             setupResolved: Boolean,
             volumes: List<Pair<String, String>>,
+            awaitingMount: Boolean = false,
         ): BootState {
             if (!hasStorage) {
                 return BootState.NeedsPermission(storageGranted = false)
@@ -96,10 +165,10 @@ class BootSequencer(
                 is BootState.Initializing -> current
                 is BootState.Error -> current
                 BootState.Ready -> BootState.Ready
-                else -> if (setupResolved) {
-                    BootState.Initializing(BootPhase.IMPORT, 0f, "Preparing")
-                } else {
-                    BootState.NeedsSetup(volumes)
+                else -> when {
+                    setupResolved -> BootState.Initializing(BootPhase.IMPORT, 0f, "Preparing")
+                    awaitingMount -> BootState.Resolving
+                    else -> BootState.NeedsSetup(volumes)
                 }
             }
         }

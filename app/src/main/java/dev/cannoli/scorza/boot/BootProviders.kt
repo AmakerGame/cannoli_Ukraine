@@ -1,5 +1,7 @@
 package dev.cannoli.scorza.boot
 
+import android.os.Handler
+import android.os.Looper
 import dagger.Lazy
 import dagger.Module
 import dagger.Provides
@@ -52,6 +54,19 @@ object BootProviders {
         startStorageDependent = { startStorageDependentHolder.invoke() },
         initRunner = BootSequencer.InitRunner { onPhase -> initializer.get().run(onPhase) },
         scope = ioScope,
+        mountWatcher = object : MountWatcher {
+            private var watch: SetupCoordinator.StorageWatch? = null
+            override fun start(onChange: () -> Unit) {
+                if (watch == null) watch = setupCoordinator.watchStorage(onChange)
+            }
+            override fun stop() {
+                watch?.stop()
+                watch = null
+            }
+        },
+        scheduleTimeout = { delayMs, action ->
+            Handler(Looper.getMainLooper()).postDelayed(action, delayMs)
+        },
     )
 }
 

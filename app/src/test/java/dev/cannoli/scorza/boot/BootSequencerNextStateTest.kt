@@ -30,6 +30,45 @@ class BootSequencerNextStateTest {
         assertEquals(BootState.NeedsSetup(volumes), next(BootState.Resolving, setupKnown = false))
     }
 
+    @Test fun unresolved_while_awaiting_mount_stays_on_splash() {
+        assertEquals(
+            BootState.Resolving,
+            BootSequencer.nextState(
+                current = BootState.Resolving,
+                hasStorage = true,
+                setupResolved = false,
+                volumes = volumes,
+                awaitingMount = true,
+            ),
+        )
+    }
+
+    @Test fun unresolved_after_mount_wait_falls_through_to_needs_setup() {
+        assertEquals(
+            BootState.NeedsSetup(volumes),
+            BootSequencer.nextState(
+                current = BootState.Resolving,
+                hasStorage = true,
+                setupResolved = false,
+                volumes = volumes,
+                awaitingMount = false,
+            ),
+        )
+    }
+
+    @Test fun missing_storage_ignores_awaiting_mount() {
+        assertEquals(
+            BootState.NeedsPermission(storageGranted = false),
+            BootSequencer.nextState(
+                current = BootState.Resolving,
+                hasStorage = false,
+                setupResolved = false,
+                volumes = volumes,
+                awaitingMount = true,
+            ),
+        )
+    }
+
     @Test fun resolving_granted_and_setup_known_goes_to_initializing() {
         val s = next(BootState.Resolving)
         assertTrue(s is BootState.Initializing && s.phase == BootPhase.IMPORT)

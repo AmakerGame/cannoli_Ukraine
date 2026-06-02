@@ -77,9 +77,99 @@ class BootSequencerTest {
         assertTrue(s.state.value is BootState.NeedsPermission)
     }
 
+    private class FakeMountWatcher : MountWatcher {
+        var onChange: (() -> Unit)? = null
+        var started = false
+        var stopped = false
+        override fun start(onChange: () -> Unit) { this.onChange = onChange; started = true }
+        override fun stop() { stopped = true; onChange = null }
+    }
+
+    @Test fun unresolved_holds_on_splash_then_mount_event_initializes() = runTest {
+        val runs = AtomicInteger(0)
+        var resolved = false
+        val watcher = FakeMountWatcher()
+        val initRunner = BootSequencer.InitRunner { onPhase ->
+            runs.incrementAndGet()
+            onPhase(BootPhase.IMPORT, 1f, "done")
+            BootResult.Success
+        }
+        val s = BootSequencer(
+            permissionStatus = FakePerms(),
+            isSetupResolved = { resolved },
+            detectVolumes = { listOf("Internal Storage" to "/storage/emulated/0/") },
+            onSetupResolved = { _ -> },
+            startStorageDependent = { },
+            initRunner = initRunner,
+            scope = this,
+            now = { 0L },
+            mountWatcher = watcher,
+        )
+        s.advance()
+        assertEquals(BootState.Resolving, s.state.value)
+        assertTrue(watcher.started)
+        // SD card finishes mounting: setup now resolves and the mount callback re-advances.
+        resolved = true
+        watcher.onChange?.invoke()
+        advanceUntilIdle()
+        assertEquals(BootState.Ready, s.state.value)
+        assertEquals(1, runs.get())
+        assertTrue(watcher.stopped)
+    }
+
+    @Test fun unresolved_falls_through_to_needs_setup_after_timeout() = runTest {
+        var nowMs = 0L
+        val s = BootSequencer(
+            permissionStatus = FakePerms(),
+            isSetupResolved = { false },
+            detectVolumes = { listOf("Internal Storage" to "/storage/emulated/0/") },
+            onSetupResolved = { _ -> },
+            startStorageDependent = { },
+            initRunner = BootSequencer.InitRunner { BootResult.Success },
+            scope = this,
+            now = { nowMs },
+            mountWatcher = FakeMountWatcher(),
+        )
+        s.advance()
+        assertEquals(BootState.Resolving, s.state.value)
+        nowMs = BootSequencer.MOUNT_WAIT_TIMEOUT_MS + 1
+        s.advance()
+        assertTrue(s.state.value is BootState.NeedsSetup)
+    }
+
+    @Test fun timeout_re_arms_after_permission_lost_then_regained() = runTest {
+        val perms = FakePerms(storage = true)
+        var scheduledCount = 0
+        val s = BootSequencer(
+            permissionStatus = perms,
+            isSetupResolved = { false },
+            detectVolumes = { listOf("Internal Storage" to "/storage/emulated/0/") },
+            onSetupResolved = { _ -> },
+            startStorageDependent = { },
+            initRunner = BootSequencer.InitRunner { BootResult.Success },
+            scope = this,
+            now = { 0L },
+            mountWatcher = FakeMountWatcher(),
+            scheduleTimeout = { _, _ -> scheduledCount++ },
+        )
+        s.advance()
+        assertEquals(BootState.Resolving, s.state.value)
+        assertEquals(1, scheduledCount)
+        // Storage permission lost (leaves the unresolved-with-storage state), then regained.
+        perms.storage = false
+        s.advance()
+        assertTrue(s.state.value is BootState.NeedsPermission)
+        perms.storage = true
+        s.advance()
+        // The wait must re-arm with a fresh timeout, not hang on the splash with no re-check.
+        assertEquals(2, scheduledCount)
+        assertEquals(BootState.Resolving, s.state.value)
+    }
+
     @Test fun setup_unresolved_goes_to_needs_setup_then_folder_choice_initializes() = runTest {
         val runs = AtomicInteger(0)
         var resolved = false
+        var nowMs = 0L
         val perms = FakePerms()
         val initRunner = BootSequencer.InitRunner { onPhase ->
             runs.incrementAndGet()
@@ -94,7 +184,12 @@ class BootSequencerTest {
             startStorageDependent = { },
             initRunner = initRunner,
             scope = this,
+            now = { nowMs },
+            mountWatcher = FakeMountWatcher(),
         )
+        s.advance()
+        // Past the mount wait with no card: drops to the storage-select wizard.
+        nowMs = BootSequencer.MOUNT_WAIT_TIMEOUT_MS + 1
         s.advance()
         assertTrue(s.state.value is BootState.NeedsSetup)
         s.onFolderChosen("/storage/emulated/0/Cannoli/")
