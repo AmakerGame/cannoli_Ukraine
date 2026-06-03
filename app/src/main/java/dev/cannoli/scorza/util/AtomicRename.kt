@@ -30,16 +30,7 @@ class AtomicRename(private val cannoliRoot: File) {
             findArtFile(platformTag, oldBaseName)?.let { artFile ->
                 artFile.copyTo(File(backupTagDir, artFile.name), overwrite = true)
             }
-            findMatchingFiles(File(savesDir, platformTag), oldBaseName).forEach { save ->
-                save.copyTo(File(backupTagDir, "saves_${save.name}"), overwrite = true)
-            }
-            findMatchingFiles(File(statesDir, platformTag), oldBaseName).forEach { state ->
-                state.copyTo(File(backupTagDir, "states_${state.name}"), overwrite = true)
-            }
-            val stateSubDir = File(File(statesDir, platformTag), oldBaseName)
-            if (stateSubDir.isDirectory) {
-                stateSubDir.copyRecursively(File(backupTagDir, "statedir_$oldBaseName"), overwrite = true)
-            }
+            backupSaveData(backupTagDir, platformTag, oldBaseName)
             // Back up anything at the target name that the rename phase would clobber.
             backupTargetCollateral(backupTagDir, romDir, extension, newBaseName, platformTag)
         } catch (e: Exception) {
@@ -56,18 +47,7 @@ class AtomicRename(private val cannoliRoot: File) {
                 val newArtFile = File(artFile.parentFile, "$newBaseName.${artFile.extension}")
                 artFile.renameTo(newArtFile)
             }
-            findMatchingFiles(File(savesDir, platformTag), oldBaseName).forEach { save ->
-                val newName = save.name.replaceFirst(oldBaseName, newBaseName)
-                save.renameTo(File(save.parentFile, newName))
-            }
-            findMatchingFiles(File(statesDir, platformTag), oldBaseName).forEach { state ->
-                val newName = state.name.replaceFirst(oldBaseName, newBaseName)
-                state.renameTo(File(state.parentFile, newName))
-            }
-            val stateSubDir = File(File(statesDir, platformTag), oldBaseName)
-            if (stateSubDir.isDirectory) {
-                stateSubDir.renameTo(File(File(statesDir, platformTag), newBaseName))
-            }
+            moveSaveData(platformTag, oldBaseName, newBaseName)
             updateMapFile(romDir, romFile.name, "$newBaseName.$extension")
         } catch (e: Exception) {
             try {
@@ -77,6 +57,106 @@ class AtomicRename(private val cannoliRoot: File) {
         }
 
         return RenameResult(true)
+    }
+
+    // Reconciles a game's save data to a new base name without touching the ROM file or
+    // art (used to heal saves written under the wrong name). Assumes the target base name
+    // is unoccupied (the caller skips when destination save data already exists); rollback
+    // clears any newBase artifacts on failure.
+    fun relocateSaveData(platformTag: String, oldBaseName: String, newBaseName: String): RenameResult {
+        if (oldBaseName == newBaseName) return RenameResult(true)
+        if (!hasSaveData(platformTag, oldBaseName)) return RenameResult(true)
+
+        val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+        val backupTagDir = File(backupDir, "$platformTag/relocate-$oldBaseName-$timestamp")
+        try {
+            backupTagDir.mkdirs()
+            backupSaveData(backupTagDir, platformTag, oldBaseName)
+        } catch (e: Exception) {
+            backupTagDir.deleteRecursively()
+            return RenameResult(false, "Backup failed: ${e.message}")
+        }
+
+        try {
+            moveSaveData(platformTag, oldBaseName, newBaseName)
+        } catch (e: Exception) {
+            try {
+                clearSaveData(platformTag, newBaseName)
+                restoreSaveData(backupTagDir, platformTag)
+            } catch (_: Exception) { }
+            return RenameResult(false, "Relocate failed: ${e.message}")
+        }
+
+        return RenameResult(true)
+    }
+
+    private fun hasSaveData(tag: String, baseName: String): Boolean {
+        val statesTagDir = File(statesDir, tag)
+        return File(statesTagDir, baseName).isDirectory ||
+            findMatchingFiles(File(savesDir, tag), baseName).isNotEmpty() ||
+            findMatchingFiles(statesTagDir, baseName).isNotEmpty()
+    }
+
+    private fun backupSaveData(backupTagDir: File, tag: String, baseName: String) {
+        findMatchingFiles(File(savesDir, tag), baseName).forEach { save ->
+            save.copyTo(File(backupTagDir, "saves_${save.name}"), overwrite = true)
+        }
+        findMatchingFiles(File(statesDir, tag), baseName).forEach { state ->
+            state.copyTo(File(backupTagDir, "states_${state.name}"), overwrite = true)
+        }
+        val stateSubDir = File(File(statesDir, tag), baseName)
+        if (stateSubDir.isDirectory) {
+            stateSubDir.copyRecursively(File(backupTagDir, "statedir_$baseName"), overwrite = true)
+        }
+    }
+
+    private fun moveSaveData(tag: String, oldBaseName: String, newBaseName: String) {
+        val savesTagDir = File(savesDir, tag)
+        val statesTagDir = File(statesDir, tag)
+        moveMatching(savesTagDir, oldBaseName, newBaseName)
+        moveMatching(statesTagDir, oldBaseName, newBaseName)
+        val stateSubDir = File(statesTagDir, oldBaseName)
+        if (stateSubDir.isDirectory) {
+            val newStateDir = File(statesTagDir, newBaseName)
+            newStateDir.parentFile?.mkdirs()
+            if (newStateDir.isDirectory && newStateDir.list()?.isEmpty() == true) newStateDir.delete()
+            if (!stateSubDir.renameTo(newStateDir)) throw Exception("Failed to move state dir")
+            newStateDir.listFiles()?.forEach { f ->
+                if (f.name.startsWith(oldBaseName)) {
+                    val renamed = newBaseName + f.name.substring(oldBaseName.length)
+                    if (!f.renameTo(File(newStateDir, renamed))) throw Exception("Failed to rename ${f.name}")
+                }
+            }
+        }
+    }
+
+    private fun moveMatching(dir: File, oldBaseName: String, newBaseName: String) {
+        findMatchingFiles(dir, oldBaseName).forEach { file ->
+            val renamed = newBaseName + file.name.substring(oldBaseName.length)
+            if (!file.renameTo(File(dir, renamed))) throw Exception("Failed to move ${file.name}")
+        }
+    }
+
+    private fun clearSaveData(tag: String, baseName: String) {
+        File(File(statesDir, tag), baseName).deleteRecursively()
+        findMatchingFiles(File(statesDir, tag), baseName).forEach { it.delete() }
+        findMatchingFiles(File(savesDir, tag), baseName).forEach { it.delete() }
+    }
+
+    private fun restoreSaveData(backupTagDir: File, tag: String) {
+        backupTagDir.listFiles()?.forEach { b ->
+            when {
+                b.name.startsWith("saves_") ->
+                    b.copyTo(File(File(savesDir, tag), b.name.removePrefix("saves_")), overwrite = true)
+                b.name.startsWith("states_") ->
+                    b.copyTo(File(File(statesDir, tag), b.name.removePrefix("states_")), overwrite = true)
+                b.name.startsWith("statedir_") -> {
+                    val dest = File(File(statesDir, tag), b.name.removePrefix("statedir_"))
+                    dest.deleteRecursively()
+                    b.copyRecursively(dest, overwrite = true)
+                }
+            }
+        }
     }
 
     private fun backupTargetCollateral(
@@ -116,28 +196,19 @@ class AtomicRename(private val cannoliRoot: File) {
         }
     }
 
-    private fun rollback(backupDir: File, originalRom: File, tag: String) {
+    private fun rollback(backupTagDir: File, originalRom: File, tag: String) {
         val romDir = originalRom.parentFile ?: return
-        backupDir.listFiles()?.forEach { backup ->
+        restoreSaveData(backupTagDir, tag)
+        backupTagDir.listFiles()?.forEach { backup ->
             // The "target" subdir holds files that lived at the new name before
             // the rename clobbered them. Rollback only restores source-side state,
             // so leave target-side captures alone.
             if (backup.isDirectory && backup.name == "target") return@forEach
+            if (backup.name.startsWith("saves_") ||
+                backup.name.startsWith("states_") ||
+                backup.name.startsWith("statedir_")
+            ) return@forEach
             when {
-                backup.name.startsWith("saves_") -> {
-                    val origName = backup.name.removePrefix("saves_")
-                    backup.copyTo(File(File(savesDir, tag), origName), overwrite = true)
-                }
-                backup.name.startsWith("statedir_") -> {
-                    val origName = backup.name.removePrefix("statedir_")
-                    val targetDir = File(File(statesDir, tag), origName)
-                    targetDir.deleteRecursively()
-                    backup.copyRecursively(targetDir, overwrite = true)
-                }
-                backup.name.startsWith("states_") -> {
-                    val origName = backup.name.removePrefix("states_")
-                    backup.copyTo(File(File(statesDir, tag), origName), overwrite = true)
-                }
                 backup.name == originalRom.name -> {
                     backup.copyTo(File(romDir, backup.name), overwrite = true)
                 }
@@ -164,7 +235,7 @@ class AtomicRename(private val cannoliRoot: File) {
     private fun findMatchingFiles(dir: File, baseName: String): List<File> {
         if (!dir.exists()) return emptyList()
         return dir.listFiles()?.filter {
-            it.nameWithoutExtension == baseName || it.nameWithoutExtension.startsWith("$baseName.")
+            it.isFile && (it.nameWithoutExtension == baseName || it.nameWithoutExtension.startsWith("$baseName."))
         } ?: emptyList()
     }
 
