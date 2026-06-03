@@ -103,6 +103,22 @@ internal object Migrations {
                 )
             """.trimIndent())
         },
+        Migration(3) { db ->
+            db.execSQL("""
+                CREATE TABLE game_overrides_new (
+                    rom_id INTEGER PRIMARY KEY REFERENCES roms(id) ON DELETE CASCADE,
+                    core_id TEXT,
+                    runner TEXT,
+                    app_package TEXT
+                )
+            """.trimIndent())
+            db.execSQL("""
+                INSERT INTO game_overrides_new (rom_id, core_id, runner, app_package)
+                SELECT rom_id, core_id, runner, app_package FROM game_overrides
+            """.trimIndent())
+            db.execSQL("DROP TABLE game_overrides")
+            db.execSQL("ALTER TABLE game_overrides_new RENAME TO game_overrides")
+        },
     )
 
     val current: Int = all.maxOf { it.version }
