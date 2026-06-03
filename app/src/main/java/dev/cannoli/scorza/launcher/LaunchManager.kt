@@ -275,27 +275,25 @@ class LaunchManager(
                                 return null
                             }
                         }
-                        val raPackage = gameOverride?.raPackage
-                            ?: platformConfig.getPackage(rom.platformTag)
-                        if (raPackage != null && installedCoreService != null) {
-                            if (!context.isPackageInstalled(raPackage)) {
-                                val appName = try {
-                                    val info = context.packageManager.getApplicationInfo(raPackage, 0)
-                                    context.packageManager.getApplicationLabel(info).toString()
-                                } catch (_: PackageManager.NameNotFoundException) { raPackage }
-                                return errorAndReset(DialogState.MissingApp(appName, raPackage))
-                            }
-                            if (installedCoreService.cacheReady
-                                && raPackage !in installedCoreService.unresponsivePackages
-                                && !installedCoreService.hasCoreInPackage(core, raPackage)) {
-                                val label = InstalledCoreService.getPackageLabel(raPackage)
-                                return errorAndReset(DialogState.MissingCore("$core not found in $label"))
-                            }
+                        val raPackage = settings.retroArchPackage
+                        if (!context.isPackageInstalled(raPackage)) {
+                            val appName = try {
+                                val info = context.packageManager.getApplicationInfo(raPackage, 0)
+                                context.packageManager.getApplicationLabel(info).toString()
+                            } catch (_: PackageManager.NameNotFoundException) { raPackage }
+                            return errorAndReset(DialogState.MissingApp(appName, raPackage))
                         }
                         if (settings.retroArchDiyMode) {
                             val raConfig = "/storage/emulated/0/Android/data/$raPackage/files/retroarch.cfg"
                             retroArchLauncher.launch(launchFile, core, raConfig, raPackage, buildIGMExtras(rom))
                         } else {
+                            if (installedCoreService != null
+                                && installedCoreService.cacheReady
+                                && raPackage !in installedCoreService.unresponsivePackages
+                                && !installedCoreService.hasCoreInPackage(core, raPackage)) {
+                                val label = InstalledCoreService.getPackageLabel(raPackage)
+                                return errorAndReset(DialogState.MissingCore("$core not found in $label"))
+                            }
                             syncRetroArchConfig(File(settings.sdCardRoot))
                             val launchConfig = buildGameConfig(rom) ?: raConfigPath
                             retroArchLauncher.launch(launchFile, core, launchConfig, raPackage, buildIGMExtras(rom))
@@ -354,7 +352,7 @@ class LaunchManager(
         }
         val gameOverride = platformConfig.getGameOverride(rom.path.absolutePath)
         val core = gameOverride?.coreId ?: platformConfig.getCoreName(rom.platformTag) ?: run { launching = false; return null }
-        val raPackage = gameOverride?.raPackage ?: platformConfig.getPackage(rom.platformTag)
+        val raPackage = settings.retroArchPackage
         if (settings.retroArchDiyMode) {
             val raConfig = "/storage/emulated/0/Android/data/$raPackage/files/retroarch.cfg"
             retroArchLauncher.launch(launchFile, core, raConfig, raPackage)
