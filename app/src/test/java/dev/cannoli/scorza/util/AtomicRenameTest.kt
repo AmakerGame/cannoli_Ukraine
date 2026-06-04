@@ -77,8 +77,9 @@ class AtomicRenameTest {
         assertFalse(stateSub.exists())
     }
 
-    @Test fun `rename creates a timestamped backup that contains the rom`() {
+    @Test fun `rename backs up save data but never copies the rom`() {
         val rom = File(romsDir("PS"), "Backed.bin").writeWith("rom-content")
+        File(savesDir("PS"), "Backed.srm").writeWith("save-content")
 
         val result = renamer.rename(rom, "Forward", "PS")
         assertTrue(result.success)
@@ -87,7 +88,18 @@ class AtomicRenameTest {
         assertEquals("expected exactly one backup directory", 1, tagBackups.size)
         val backup = tagBackups.first()
         assertTrue(backup.name.startsWith("Backed-"))
-        assertEquals("rom-content", File(backup, "Backed.bin").readText())
+        assertEquals("save-content", File(backup, "saves_Backed.srm").readText())
+        assertFalse("rom must not be copied into the backup", File(backup, "Backed.bin").exists())
+    }
+
+    @Test fun `rename leaves no backup directory when there is no save data`() {
+        val rom = File(romsDir("PS"), "Backed.bin").writeWith("rom-content")
+
+        val result = renamer.rename(rom, "Forward", "PS")
+        assertTrue(result.success)
+
+        val tagBackups = File(backupDir(), "PS").listFiles()?.toList().orEmpty()
+        assertTrue("no backup dir expected when nothing needs preserving", tagBackups.isEmpty())
     }
 
     @Test fun `art files of multiple supported extensions are detected`() {
@@ -112,23 +124,16 @@ class AtomicRenameTest {
         assertFalse(rom.exists())
     }
 
-    @Test fun `colliding target rom is preserved in the target subdirectory of the backup`() {
+    @Test fun `rename onto an existing rom name fails without touching either file`() {
         val rom = File(romsDir("PS"), "Source.bin").writeWith("source-content")
         File(romsDir("PS"), "Target.bin").writeWith("target-content")
 
         val result = renamer.rename(rom, "Target", "PS")
-        assertTrue(result.success)
+        assertFalse("must refuse to clobber an existing rom", result.success)
 
-        // Rename still succeeds — the source moves to the target name.
-        val movedRom = File(romsDir("PS"), "Target.bin")
-        assertEquals("source-content", movedRom.readText())
-
-        // The clobbered target rom is captured under <backup>/target/ for recovery.
-        val tagBackups = File(backupDir(), "PS").listFiles().orEmpty()
-        assertEquals(1, tagBackups.size)
-        val targetBackup = File(tagBackups.first(), "target")
-        assertTrue("expected target backup directory", targetBackup.isDirectory)
-        assertEquals("target-content", File(targetBackup, "Target.bin").readText())
+        // Neither file is moved or overwritten.
+        assertEquals("source-content", File(romsDir("PS"), "Source.bin").readText())
+        assertEquals("target-content", File(romsDir("PS"), "Target.bin").readText())
     }
 
     @Test fun `colliding target saves and states are preserved in the target backup`() {
@@ -164,15 +169,14 @@ class AtomicRenameTest {
         assertEquals("inside-target", File(savedSub, "slot1.state").readText())
     }
 
-    @Test fun `target subdirectory is omitted when nothing collides at the new name`() {
+    @Test fun `no backup directory is created when nothing collides at the new name`() {
         val rom = File(romsDir("PS"), "Source.bin").writeWith("rom")
 
         val result = renamer.rename(rom, "Pristine", "PS")
         assertTrue(result.success)
 
-        val tagBackups = File(backupDir(), "PS").listFiles().orEmpty()
-        val targetBackup = File(tagBackups.first(), "target")
-        assertFalse("no collisions should mean no target backup dir", targetBackup.exists())
+        val tagBackups = File(backupDir(), "PS").listFiles()?.toList().orEmpty()
+        assertTrue("no save data and no collisions means no backup dir", tagBackups.isEmpty())
     }
 
     @Test fun `map_txt is updated in place when present`() {

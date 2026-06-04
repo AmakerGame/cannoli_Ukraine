@@ -24,36 +24,40 @@ class AtomicRename(private val cannoliRoot: File) {
         val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
         val backupTagDir = File(backupDir, "$platformTag/${oldBaseName}-$timestamp")
 
+        // Only save data is backed up: the ROM and art are renamed in place (reversible by
+        // renaming back), so copying them would just churn gigabytes of SD I/O for nothing.
         try {
             backupTagDir.mkdirs()
-            romFile.copyTo(File(backupTagDir, romFile.name), overwrite = true)
-            findArtFile(platformTag, oldBaseName)?.let { artFile ->
-                artFile.copyTo(File(backupTagDir, artFile.name), overwrite = true)
-            }
             backupSaveData(backupTagDir, platformTag, oldBaseName)
-            // Back up anything at the target name that the rename phase would clobber.
-            backupTargetCollateral(backupTagDir, romDir, extension, newBaseName, platformTag)
+            backupTargetCollateral(backupTagDir, newBaseName, platformTag)
+            if (backupTagDir.list()?.isEmpty() == true) backupTagDir.delete()
         } catch (e: Exception) {
             backupTagDir.deleteRecursively()
             return RenameResult(false, "Backup failed: ${e.message}")
         }
 
+        val newRomFile = File(romDir, "$newBaseName.$extension")
+        var romMoved = false
+        var artMoved: Pair<File, File>? = null
         try {
-            val newRomFile = File(romDir, "$newBaseName.$extension")
+            if (newRomFile.exists() && newRomFile != romFile) {
+                throw Exception("A game named \"$newBaseName\" already exists")
+            }
             if (!romFile.renameTo(newRomFile)) {
                 throw Exception("Failed to rename ROM file")
             }
+            romMoved = true
             findArtFile(platformTag, oldBaseName)?.let { artFile ->
                 val newArtFile = File(artFile.parentFile, "$newBaseName.${artFile.extension}")
-                artFile.renameTo(newArtFile)
+                if (artFile.renameTo(newArtFile)) artMoved = artFile to newArtFile
             }
             moveSaveData(platformTag, oldBaseName, newBaseName)
             updateMapFile(romDir, romFile.name, "$newBaseName.$extension")
         } catch (e: Exception) {
             try {
-                rollback(backupTagDir, romFile, platformTag)
+                rollback(backupTagDir, platformTag, romMoved, romFile, newRomFile, artMoved)
             } catch (_: Exception) { }
-            return RenameResult(false, "Rename failed: ${e.message}")
+            return RenameResult(false, e.message ?: "Rename failed")
         }
 
         return RenameResult(true)
@@ -159,32 +163,17 @@ class AtomicRename(private val cannoliRoot: File) {
         }
     }
 
-    private fun backupTargetCollateral(
-        rootBackupDir: File,
-        romDir: File,
-        romExt: String,
-        newBaseName: String,
-        tag: String
-    ) {
-        val targetRom = File(romDir, "$newBaseName.$romExt")
-        val targetArt = findArtFile(tag, newBaseName)
+    private fun backupTargetCollateral(rootBackupDir: File, newBaseName: String, tag: String) {
         val targetSaves = findMatchingFiles(File(savesDir, tag), newBaseName)
         val targetStates = findMatchingFiles(File(statesDir, tag), newBaseName)
         val targetStateSub = File(File(statesDir, tag), newBaseName)
 
-        val anyTarget = targetRom.exists() || targetArt != null ||
-            targetSaves.isNotEmpty() || targetStates.isNotEmpty() ||
+        val anyTarget = targetSaves.isNotEmpty() || targetStates.isNotEmpty() ||
             targetStateSub.isDirectory
         if (!anyTarget) return
 
         val targetBackup = File(rootBackupDir, "target")
         targetBackup.mkdirs()
-        if (targetRom.exists()) {
-            targetRom.copyTo(File(targetBackup, targetRom.name), overwrite = true)
-        }
-        targetArt?.let { artFile ->
-            artFile.copyTo(File(targetBackup, artFile.name), overwrite = true)
-        }
         targetSaves.forEach { save ->
             save.copyTo(File(targetBackup, "saves_${save.name}"), overwrite = true)
         }
@@ -196,29 +185,19 @@ class AtomicRename(private val cannoliRoot: File) {
         }
     }
 
-    private fun rollback(backupTagDir: File, originalRom: File, tag: String) {
-        val romDir = originalRom.parentFile ?: return
-        restoreSaveData(backupTagDir, tag)
-        backupTagDir.listFiles()?.forEach { backup ->
-            // The "target" subdir holds files that lived at the new name before
-            // the rename clobbered them. Rollback only restores source-side state,
-            // so leave target-side captures alone.
-            if (backup.isDirectory && backup.name == "target") return@forEach
-            if (backup.name.startsWith("saves_") ||
-                backup.name.startsWith("states_") ||
-                backup.name.startsWith("statedir_")
-            ) return@forEach
-            when {
-                backup.name == originalRom.name -> {
-                    backup.copyTo(File(romDir, backup.name), overwrite = true)
-                }
-                else -> {
-                    val artTagDir = File(artDir, tag)
-                    artTagDir.mkdirs()
-                    backup.copyTo(File(artTagDir, backup.name), overwrite = true)
-                }
-            }
+    private fun rollback(
+        backupTagDir: File,
+        tag: String,
+        romMoved: Boolean,
+        originalRom: File,
+        newRomFile: File,
+        artMoved: Pair<File, File>?,
+    ) {
+        if (romMoved && !originalRom.exists()) newRomFile.renameTo(originalRom)
+        artMoved?.let { (oldArt, newArt) ->
+            if (!oldArt.exists()) newArt.renameTo(oldArt)
         }
+        restoreSaveData(backupTagDir, tag)
     }
 
     private fun findArtFile(tag: String, baseName: String): File? {
