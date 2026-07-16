@@ -1,0 +1,388 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <string name="app_name" translatable="false">Cannoli</string>
+
+    <!-- Bottom bar labels -->
+    <string name="label_back">НАЗАД</string>
+    <string name="label_cancel" tools:ignore="ButtonCase">СКАСУВАТИ</string>
+    <string name="label_select">ВИБРАТИ</string>
+    <string name="label_play">ГРАТИ</string>
+    <string name="label_launch">ЗАПУСТИТИ</string>
+    <string name="label_open">ВІДКРИТИ</string>
+    <string name="label_scan">СКАНУВАТИ</string>
+    <string name="label_save">ЗБЕРЕГТИ</string>
+    <string name="label_load">ЗАВАНТАЖИТИ</string>
+    <string name="label_change">ЗМІНИТИ</string>
+    <string name="label_choose">ОБРАТИ</string>
+    <string name="label_sleep">СОН</string>
+    <string name="label_close">ЗАКРИТИ</string>
+    <string name="label_remove">ВИДАЛИТИ ЯРЛИК</string>
+    <string name="label_delete">ВИДАЛИТИ</string>
+    <string name="label_add">ДОДАТИ</string>
+    <string name="label_confirm">ПІДТВЕРДИТИ</string>
+    <string name="label_toggle">ПЕРЕМКНУТИ</string>
+    <string name="label_new">НОВИЙ</string>
+    <string name="label_settings">НАЛАШТУВАННЯ</string>
+    <string name="label_menu">МЕНЮ</string>
+    <string name="label_resume">ПРОДОВЖИТИ</string>
+    <string name="label_continue">ПРОДОВЖИТИ</string>
+    <string name="label_new_folder">НОВА ПАПКА</string>
+    <string name="label_parent">БАТЬКІВСЬКА</string>
+    <string name="label_slot">СЛОТ</string>
+    <string name="label_disc">ДИСК</string>
+    <string name="label_use_location">ВИКОРИСТАТИ ЦЕ МІСЦЕ</string>
+    <string name="label_quit">ВИЙТИ</string>
+    <string name="label_stop">ЗУПИНИТИ</string>
+    <string name="label_interface">ІНТЕРФЕЙС</string>
+    <string name="label_credits">АВТОРИ</string>
+    <string name="label_update">ОНОВИТИ</string>
+    <string name="label_check_update">ПЕРЕВІРИТИ ОНОВЛЕННЯ</string>
+    <string name="label_logout">ВИЙТИ З ОБЛІКОВОГО ЗАПИСУ</string>
+    <string name="label_hex">HEX</string>
+    <string name="label_edit">РЕДАГУВАТИ</string>
+    <string name="label_rename">ПЕРЕЙМЕНУВАТИ</string>
+    <string name="label_set">ВСТАНОВИТИ</string>
+    <string name="label_clear">ОЧИСТИТИ</string>
+    <string name="label_press">НАТИСНІТЬ</string>
+    <string name="label_kitchen">КУХНЯ</string>
+    <string name="label_hold_buttons" tools:ignore="TypographyEllipsis">УТРИМУЙТЕ ОДНУ АБО КІЛЬКА КНОПОК...</string>
+    <string name="label_confirm_delete">ПІДТВЕРДИТИ ВИДАЛЕННЯ</string>
+    <string name="label_info">ІНФО</string>
+    <string name="label_details">ДЕТАЛІ</string>
+    <string name="label_all">УСІ</string>
+    <string name="label_unlocked">РОЗБЛОКОВАНО</string>
+    <string name="label_locked">ЗАБЛОКОВАНО</string>
+    <string name="label_reset_all">СКИНУТИ ВСЕ</string>
+    <string name="label_remap">ПЕРЕПРИЗНАЧИТИ</string>
+    <string name="label_unmap">ЗНЯТИ ПРИЗНАЧЕННЯ</string>
+    <string name="label_swap">ПОМІНЯТИ</string>
+    <string name="label_swap_with">ПОМІНЯТИ З</string>
+    <string name="label_grant">НАДАТИ</string>
+    <string name="igm_reassign_players">Перепризначити гравців</string>
+
+    <string name="osd_cannot_steal_confirm">Спершу перепризначте кнопку підтвердження, щоб звільнити цю кнопку</string>
+
+    <!-- In-game shortcut actions -->
+    <string name="shortcut_action_save_state">Зберегти стан</string>
+    <string name="shortcut_action_load_state">Завантажити стан</string>
+    <string name="shortcut_action_reset_game">Перезапустити гру</string>
+    <string name="shortcut_action_save_and_quit">Зберегти і вийти</string>
+    <string name="shortcut_action_save_and_quit_hold">Зберегти і вийти (утримання)</string>
+    <string name="shortcut_action_cycle_scaling">Перемкнути масштабування</string>
+    <string name="shortcut_action_cycle_shader">Перемкнути шейдер</string>
+    <string name="shortcut_action_toggle_ff">Перемкнути прискорення</string>
+    <string name="shortcut_action_hold_ff">Прискорення (утримання)</string>
+    <string name="shortcut_action_open_guide">Відкрити довідник</string>
+    <string name="shortcut_action_open_menu">Відкрити внутрішньоігрове меню</string>
+    <string name="shortcut_action_toggle_show_fps">Перемкнути показ FPS</string>
+
+    <string name="settings_title">Налаштування</string>
+
+    <!-- Settings categories -->
+    <string name="settings_display">Зовнішній вигляд</string>
+    <string name="settings_library">Бібліотека</string>
+    <string name="settings_status_bar">Рядок стану</string>
+    <string name="settings_input">Керування</string>
+    <string name="settings_emulation">Емуляція</string>
+    <string name="settings_advanced">Додатково</string>
+    <string name="settings_debug">Налагодження</string>
+    <string name="settings_retroachievements" translatable="false">RetroAchievements</string>
+    <string name="settings_about">Про застосунок</string>
+    <string name="settings_kitchen" translatable="false">Nonna\'s Kitchen</string>
+    <string name="settings_install_update">Встановити оновлення</string>
+    <string name="settings_release_channel">Канал випуску</string>
+
+    <!-- Settings items -->
+    <string name="setting_colors">Кольори</string>
+    <string name="setting_box_art">Обкладинка</string>
+    <string name="setting_art_width">Ширина обкладинки</string>
+    <string name="setting_art_scale">Масштаб обкладинки</string>
+    <string name="setting_text_size">Розмір тексту</string>
+    <string name="setting_font">Шрифт</string>
+    <string name="setting_title">Заголовок</string>
+    <string name="setting_bg_image">Фонове зображення</string>
+    <string name="setting_wifi">Wi-Fi</string>
+    <string name="setting_vpn">VPN</string>
+    <string name="setting_bluetooth">Bluetooth</string>
+    <string name="setting_clock">Годинник</string>
+    <string name="setting_battery">Батарея</string>
+    <string name="setting_updater">Оновлювач</string>
+    <string name="setting_time_format">Формат часу</string>
+    <string name="setting_controllers">Контролери</string>
+    <string name="controllers_connected_now">Підключені зараз</string>
+    <string name="controllers_saved_mappings">Збережені призначення</string>
+    <string name="controllers_empty_connected">Підключіть контролер, щоб почати.</string>
+    <string name="controllers_built_in">Вбудоване керування</string>
+    <string name="controllers_mapping_not_found">Призначення не знайдено.</string>
+    <string name="controllers_edit_buttons">Редагувати кнопки</string>
+    <string name="controllers_name">Назва</string>
+    <string name="controllers_confirm_button">Кнопка підтвердження</string>
+    <string name="controllers_glyph_style">Стиль позначок</string>
+    <string name="controllers_exclude_from_gameplay">Виключити з ігрового процесу</string>
+    <string name="controllers_forget">Забути контролер</string>
+    <string name="controllers_reset_defaults">Скинути до типових</string>
+    <string name="controllers_not_bound">Не призначено</string>
+
+    <!-- Confirm button values -->
+    <string name="value_east" translatable="false">EAST</string>
+    <string name="value_south" translatable="false">SOUTH</string>
+
+    <!-- Canonical button labels -->
+    <string name="canonical_dpad_up">Хрестовина вгору</string>
+    <string name="canonical_dpad_down">Хрестовина вниз</string>
+    <string name="canonical_dpad_left">Хрестовина вліво</string>
+    <string name="canonical_dpad_right">Хрестовина вправо</string>
+    <string name="canonical_l1" translatable="false">L1</string>
+    <string name="canonical_r1" translatable="false">R1</string>
+    <string name="canonical_l2" translatable="false">L2</string>
+    <string name="canonical_r2" translatable="false">R2</string>
+    <string name="canonical_l3">L3</string>
+    <string name="canonical_r3">R3</string>
+    <string name="canonical_start">Start</string>
+    <string name="canonical_select">Select</string>
+    <string name="canonical_menu">Меню</string>
+    <string name="canonical_south">Південь</string>
+    <string name="canonical_east">Схід</string>
+    <string name="canonical_west">Захід</string>
+    <string name="canonical_north">Північ</string>
+    <string name="canonical_face_with_glyph" translatable="false">%1$s (%2$s)</string>
+
+    <!-- Glyph face button labels -->
+    <string name="glyph_plumber_south" translatable="false">B</string>
+    <string name="glyph_plumber_east" translatable="false">A</string>
+    <string name="glyph_plumber_west" translatable="false">Y</string>
+    <string name="glyph_plumber_north" translatable="false">X</string>
+    <string name="glyph_redmond_south" translatable="false">A</string>
+    <string name="glyph_redmond_east" translatable="false">B</string>
+    <string name="glyph_redmond_west" translatable="false">X</string>
+    <string name="glyph_redmond_north" translatable="false">Y</string>
+    <string name="glyph_shapes_south" translatable="false">✕</string>
+    <string name="glyph_shapes_east" translatable="false">○</string>
+    <string name="glyph_shapes_west" translatable="false">□</string>
+    <string name="glyph_shapes_north" translatable="false">△</string>
+
+    <!-- Hat directions -->
+    <string name="hat_up">Вгору</string>
+    <string name="hat_down">Вниз</string>
+    <string name="hat_left">Вліво</string>
+    <string name="hat_right">Вправо</string>
+
+    <!-- Binding formatters -->
+    <string name="binding_key">Клавіша %1$d</string>
+    <string name="binding_hat">Хрестовина %1$s</string>
+    <string name="binding_axis_pos">Вісь %1$d+</string>
+    <string name="binding_axis_neg">Вісь %1$d-</string>
+    <string name="setting_shortcuts">Комбінації клавіш</string>
+    <string name="setting_confirm_button">Кнопка підтвердження</string>
+    <string name="setting_platform_switching">L1 / R1 перемикають платформу</string>
+    <string name="setting_swap_play_resume">Поміняти місцями «Грати» і «Продовжити»</string>
+    <string name="setting_main_menu_quit">Вихід у головне меню</string>
+    <string name="setting_always_save_on_quit">Зберігати стан при виході</string>
+    <string name="setting_retroarch_diy_mode">Режим RetroArch DIY</string>
+    <string name="setting_kitchen_code_bypass">Обхід коду кухні</string>
+    <string name="setting_set_default_launcher">Встановити як типовий лаунчер</string>
+    <string name="setting_content_mode">Режим вмісту</string>
+    <string name="setting_fgh_collection">Колекція 5GH</string>
+    <string name="setting_scroll_speed">Швидкість рядка, що біжить</string>
+    <string name="setting_show_tools">Інструменти</string>
+    <string name="setting_show_ports">Порти</string>
+    <string name="setting_show_recently_played">Нещодавно зіграні</string>
+    <string name="setting_manage_tools">Керувати інструментами</string>
+    <string name="setting_manage_ports">Керувати портами</string>
+    <string name="setting_bg_tint">Затінення фону</string>
+    <string name="setting_color_title">Заголовок</string>
+    <string name="setting_color_highlight">Виділення</string>
+    <string name="setting_color_text">Текст</string>
+    <string name="setting_color_highlight_text">Текст виділення</string>
+    <string name="setting_color_accent">Акцент</string>
+    <string name="setting_color_background">Фон</string>
+    <string name="setting_color_status_bar">Рядок стану</string>
+    <string name="setting_core_mapping">Призначення ядер</string>
+    <string name="setting_installed_cores">%s встановлених ядер</string>
+    <string name="title_installed_cores">%s встановлених ядер</string>
+    <string name="installed_cores_none">Ядер не знайдено</string>
+    <string name="setting_sd_root">Корінь Cannoli</string>
+    <string name="setting_rom_directory">Каталог ROM</string>
+    <string name="setting_ra_package">Пакет RetroArch</string>
+    <string name="setting_rebuild_cache">Перебудувати кеш</string>
+    <string name="setting_scan_library">Режим сканування</string>
+    <string name="setting_refresh_library">Оновити бібліотеку</string>
+    <string name="value_automatically">Автоматично</string>
+    <string name="value_manually">Вручну</string>
+    <string name="setting_ra_username">Ім\'я користувача</string>
+    <string name="setting_ra_password">Пароль</string>
+    <string name="setting_ra_login">Увійти</string>
+    <string name="setting_ra_logout">Вийти</string>
+    <string name="setting_ra_status">Ви увійшли як</string>
+    <string name="setting_kitchen_toggle">Файловий сервер</string>
+    <string name="setting_logging">Журналювання</string>
+    <string name="setting_audit_emulator_intents">Аудит намірів емулятора</string>
+    <string name="logging_title">Журналювання</string>
+    <string name="logging_rom_scan">Сканування ROM</string>
+    <string name="logging_input">Керування</string>
+    <string name="logging_session">Ігрова сесія</string>
+    <string name="logging_storage">Сховище</string>
+    <string name="setting_input_tester">Тестер керування</string>
+    <string name="input_tester_none">—</string>
+    <string name="input_tester_device_format">P%1$d • %2$s • dev%3$d</string>
+    <string name="input_tester_exit_hint">Утримуйте Start + Select, щоб вийти</string>
+    <string name="input_tester_device_keyboard">клавіатура</string>
+    <string name="input_tester_device_unknown">невідомо</string>
+
+    <!-- Setting values -->
+    <string name="value_on">Увімк.</string>
+    <string name="value_off">Вимк.</string>
+    <string name="value_show">Показати</string>
+    <string name="value_hide">Сховати</string>
+    <string name="value_none">Немає</string>
+    <string name="value_selected">Вибрано</string>
+    <string name="value_cannoli_root">Корінь Cannoli</string>
+    <string name="value_platforms">Типово</string>
+    <string name="value_collections">Лише колекції</string>
+    <string name="value_five_game_handheld">Портативна консоль на 5 ігор</string>
+    <string name="value_fit">Вмістити</string>
+    <string name="value_original">Оригінал</string>
+    <string name="value_fit_width">За шириною</string>
+    <string name="value_fit_height">За висотою</string>
+    <string name="value_percent">Відсоток</string>
+    <string name="value_icon">Значок</string>
+    <string name="value_12h">12 год</string>
+    <string name="value_24h">24 год</string>
+    <string name="value_not_set">Не встановлено</string>
+    <string name="value_not_installed">Не встановлено</string>
+    <string name="value_none_installed">Нічого не встановлено</string>
+    <string name="value_active">Активно</string>
+    <string name="value_current">Поточне</string>
+    <string name="text_size_compact">Компактний</string>
+    <string name="text_size_default">Типовий</string>
+
+    <!-- Dialogs -->
+    <string name="empty_list">%1$s порожньо</string>
+    <string name="dialog_rename">Перейменувати</string>
+    <string name="dialog_delete_confirm">Видалити «%1$s»?</string>
+    <string name="dialog_add_to_collection">Додати до колекції</string>
+    <string name="dialog_new_collection">Нова колекція</string>
+    <string name="dialog_missing_core">%1$s недоступне.\nВбудоване або RetroArch ядро не знайдено.</string>
+    <string name="dialog_missing_app">%1$s не встановлено.</string>
+    <string name="dialog_launch_error">%1$s</string>
+    <string name="dialog_missing_bios_header">У %1$s потрібен принаймні один файл BIOS:</string>
+    <string name="dialog_title_missing_core">Відсутнє ядро</string>
+    <string name="dialog_title_missing_app">Відсутній застосунок</string>
+    <string name="dialog_title_launch_error">Помилка запуску</string>
+    <string name="dialog_rename_success">Успішно перейменовано</string>
+    <string name="dialog_rename_failed">Помилка перейменування: %1$s</string>
+    <string name="dialog_quit_confirm">Ви впевнені, що хочете вийти?</string>
+
+    <!-- Context menu options -->
+    <string name="context_rename">Перейменувати</string>
+    <string name="context_delete">Видалити</string>
+    <string name="context_add_to_collection">Додати до колекції</string>
+
+    <!-- Formatted strings -->
+    <string name="collection_created">%1$s створено</string>
+    <string name="selected_count">Вибрано: %1$d</string>
+    <string name="battery_level">%1$d%%</string>
+
+    <!-- Onboarding wizard -->
+    <string name="onboarding_header">НАЛАШТУВАННЯ CANNOLI</string>
+    <string name="onboarding_permissions_title">Дозволи та сховище</string>
+    <string name="onboarding_storage_label">Доступ до сховища</string>
+    <string name="onboarding_storage_rationale">Cannoli потребує доступу до ваших ROM, збережень, обкладинок тощо.\nБез цього Cannoli не зможе працювати.</string>
+    <string name="onboarding_status_granted">Надано</string>
+    <string name="onboarding_status_not_granted">Не надано</string>
+    <string name="onboarding_press_a_to_select_folder">Натисніть A, щоб вибрати папку</string>
+    <string name="onboarding_storage_locked_hint">Можна налаштувати після надання дозволів.</string>
+    <string name="onboarding_select_folder">ВИБРАТИ ПАПКУ</string>
+    <string name="onboarding_location_label">Розташування</string>
+
+    <!-- Boot error screen -->
+    <string name="boot_error_title">Щось пішло не так</string>
+
+    <!-- Storage row (shared with onboarding) -->
+    <string name="setup_folder_unset">Не вибрано</string>
+
+    <!-- System list -->
+    <string name="empty_content">Вміст не знайдено. Додайте щось!</string>
+    <string name="empty_fgh_collection">Ваша колекція 5GH порожня. Наповніть її!</string>
+    <string name="label_recently_played">Нещодавно зіграні</string>
+    <string name="label_favorites">Улюблене</string>
+    <string name="label_collections">Колекції</string>
+
+    <!-- About -->
+    <string name="about_title">Cannoli</string>
+    <string name="about_description">Фронтенд саме з такою кількістю начинки, скільки треба!</string>
+    <string name="about_website">cannoli.dev</string>
+
+    <!-- Kitchen -->
+    <string name="kitchen_title">Nonna\'s Kitchen</string>
+
+    <!-- RetroAchievements -->
+    <string name="ra_title">RetroAchievements</string>
+    <string name="ra_logged_in_as">Ви увійшли як</string>
+    <string name="ra_login_failed">RA: помилка входу</string>
+    <string name="ra_login_success">RA: %1$s (%2$s) · %3$d/%4$d розблоковано</string>
+    <string name="ra_init_failed">RA: помилка ініціалізації</string>
+    <string name="ra_load_not_recognized">RA: гру не розпізнано</string>
+    <string name="ra_load_no_achievements">RA: для цієї гри немає досягнень</string>
+    <string name="ra_load_offline_pending">RA: офлайн (дані гри недоступні)</string>
+    <string name="ra_status_online">Онлайн</string>
+    <string name="ra_status_offline">Офлайн</string>
+
+    <!-- Credits -->
+    <string name="credits_title">Автори та ліцензії</string>
+
+    <!-- Core picker / nav -->
+    <string name="no_compatible_cores">Сумісних ядер не знайдено</string>
+    <string name="no_collections">Немає колекцій</string>
+    <string name="title_child_collections">Дочірні колекції</string>
+    <string name="title_button_mapping">Призначення кнопок</string>
+    <string name="title_shortcuts">Комбінації клавіш</string>
+    <string name="shortcut_hold_prompt" tools:ignore="TypographyEllipsis">Утримуйте одну або кілька кнопок...</string>
+
+    <!-- Update download -->
+    <string name="update_downloading" tools:ignore="TypographyEllipsis">Завантаження...</string>
+    <string name="update_installing" tools:ignore="TypographyEllipsis">Встановлення...</string>
+    <string name="update_retry">ПОВТОРИТИ</string>
+    <string name="restart_required">Для застосування змін потрібен перезапуск.</string>
+    <string name="update_up_to_date">У вас найновіша версія.</string>
+    <string name="update_available">Доступна нова версія.</string>
+
+    <!-- IGM screen titles -->
+    <string name="igm_settings">Налаштування</string>
+    <string name="igm_video">Відео</string>
+    <string name="igm_advanced">Додатково</string>
+    <string name="igm_shader_settings">Налаштування шейдерів</string>
+    <string name="igm_emulator">Емулятор</string>
+    <string name="igm_save_changes">Зберегти зміни</string>
+    <string name="igm_buttons">Кнопки</string>
+    <string name="igm_save_and_quit">Зберегти і вийти</string>
+    <string name="title_guide">Довідник</string>
+
+    <!-- IGM info labels -->
+    <string name="info_core">Ядро</string>
+    <string name="info_rom">ROM</string>
+    <string name="info_extracted">Розпаковано</string>
+    <string name="info_save">Збереження</string>
+    <string name="info_renderer">Рендерер</string>
+    <string name="info_game_id">ID гри</string>
+    <string name="info_ra_detection">Виявлення досягнень</string>
+
+    <!-- IGM dialogs -->
+    <string name="igm_delete_slot">Видалити %1$s?</string>
+    <string name="igm_press_button" tools:ignore="TypographyEllipsis">НАТИСНІТЬ КНОПКУ... %1$d</string>
+    <string name="press_button_prompt" tools:ignore="TypographyEllipsis">Натисніть будь-яку кнопку...</string>
+
+    <!-- Achievements -->
+    <string name="ach_title">Досягнення (%1$d/%2$d)</string>
+    <string name="ach_points_short">%1$d очк.</string>
+    <string name="ach_points">%1$d очок</string>
+    <string name="ach_unlocked_pending">Розблоковано \u2022 очікує синхронізації</string>
+    <string name="ach_unlocked_date">Розблоковано %1$s</string>
+    <string name="ach_unlocked">Розблоковано</string>
+    <string name="ach_locked">Заблоковано</string>
+
+    <!-- Guide -->
+    <string name="guide_page">%1$d / %2$d</string>
+
+    <string name="setting_portrait_margin">Відступ у портретній орієнтації</string>
+    <string name="portrait_margin_hud">Відступ: %1$d пк</string>
+</resources>
