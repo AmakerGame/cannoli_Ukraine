@@ -1,30 +1,29 @@
 <div align="center">
-
 <img src=".github/resources/logo.png" width="256px" alt="A cannoli you silly goose!">
+
 <h3 style="font-size:35px; padding-top:0px; padding-bottom:0px; margin-bottom: 0px; margin-top: 5px;">
 Cannoli
 </h3>
+<h4 style="font-size:18px; padding-top:0px; margin-top:0px;">Фронтенд саме з такою кількістю начинки, скільки треба!</h4>
 
-<h4 style="font-size:18px; padding-top:0px; margin-top:0px;">A frontend with just the right amount of filling!</h4>
-
-<a href="LICENSE"><img src="https://img.shields.io/github/license/CannoliHQ/cannoli?style=for-the-badge&labelColor=E8C896&color=555555" height="36" alt="License"></a>
-<a href="https://github.com/CannoliHQ/cannoli/stargazers"><img src="https://img.shields.io/github/stars/CannoliHQ/cannoli?style=for-the-badge&labelColor=E8C896&color=555555" height="36" alt="Stars"></a>
-<a href="https://github.com/CannoliHQ/cannoli/releases"><img src="https://img.shields.io/github/downloads/CannoliHQ/cannoli/total?style=for-the-badge&labelColor=E8C896&color=555555" height="36" alt="Downloads"></a>
+<a href="LICENSE"><img src="https://img.shields.io/github/license/AmakerGame/cannoli_Ukraine?style=for-the-badge&labelColor=E8C896&color=555555" height="36" alt="License"></a>
+<a href="https://github.com/AmakerGame/cannoli_Ukraine/stargazers"><img src="https://img.shields.io/github/stars/AmakerGame/cannoli_Ukraine?style=for-the-badge&labelColor=E8C896&color=555555" height="36" alt="Stars"></a>
+<a href="https://github.com/AmakerGame/cannoli_Ukraine/releases"><img src="https://img.shields.io/github/downloads/AmakerGame/cannoli_Ukraine/total?style=for-the-badge&labelColor=E8C896&color=555555" height="36" alt="Downloads"></a>
 <a href="https://cannoli.dev"><img src="https://img.shields.io/badge/Docs-cannoli.dev-555555?style=for-the-badge&labelColor=E8C896" height="36" alt="Docs"></a>
-
 </div>
 
 ---
 
-# What is Cannoli?
+# Що таке Cannoli?
 
-Cannoli is an opinionated retro gaming setup for Android.
+Cannoli — це продуманий (opinionated) фронтенд для ретро-ігор на Android.
+Він має [вбудовані libretro-ядра](https://cannoli.dev/documentation/platforms/), а також може запускати RetroArch і окремі емулятори, як звичайний фронтенд.
 
-It comes with [built-in libretro cores](https://cannoli.dev/documentation/platforms/) and can also launch RetroArch / Standalone emulators like a traditional frontend.
+Це — **українська локалізація** Cannoli, заснована на оригінальному проєкті [CannoliHQ/cannoli](https://github.com/CannoliHQ/cannoli).
 
 ---
 
-# What does it look like?
+# Як це виглядає?
 
 <p align="center">
 <a href=".github/resources/screenshots/main_menu.png"><img src=".github/resources/screenshots/main_menu.png" width="30%"></a>
@@ -34,35 +33,32 @@ It comes with [built-in libretro cores](https://cannoli.dev/documentation/platfo
 
 ---
 
-# Why make another frontend?
+# Навіщо ще один фронтенд?
 
 `¯\_(ツ)_/¯`
 
-I adore [MinUI](https://github.com/shauninman/MinUI) by [Shaun Inman](https://github.com/shauninman). No fuss, a focused
-feature set, and unapologetically opinionated.
+Автор оригінального Cannoli обожнює [MinUI](https://github.com/shauninman/MinUI) від [Shaun Inman](https://github.com/shauninman). Без зайвих ускладнень, з чітко визначеним набором функцій і навмисно продуманими рішеннями.
+Без цього шедевру цей похідний проєкт би не існував.
+За це — подяка йому, і вибачення за наступну "перекручену" версію.
 
-Without his masterpiece this derivative would not exist.
+Після покупки Retroid Pocket Classic автор дуже сумував за простотою MinUI.
+**Так з'явилась спроба принести цей досвід на Android.**
 
-For that I thank him, and apologize for the bastardization that follows.
-
-Since purchasing a Retroid Pocket Classic I've been yearning for MinUI's simplicity.
-
-**This is my attempt to bring that experience to Android.**
+Цей репозиторій, своєю чергою, — спроба принести цей досвід і українською мовою.
 
 ---
 
-# Design Goals
+# Цілі проєкту
 
-- Play Some Damn Games!
-- Minimal Configuration
-- Easy to add new games
-- Basic features baked in
-- Judicious addition of new features
+- Просто грайте в чортові ігри!
+- Мінімум налаштувань
+- Легко додавати нові ігри
+- Базові функції вже вбудовані
+- Виважене додавання нових функцій
 
 ---
 
-# Spread Joy!
+# Ширте добро!
 
-I've spent a lot of time building Cannoli.
-
-If you enjoy using it and feel inclined to pay it forward, go do something nice for someone! ❤️
+Автор Cannoli вклав багато часу в цей проєкт.
+Якщо він вам подобається і хочеться віддячити — зробіть щось хороше для когось іншого! ❤️
